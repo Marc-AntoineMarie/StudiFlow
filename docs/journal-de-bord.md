@@ -80,6 +80,54 @@ dégradée, donut répartition, cartes secondaires) — bibliothèque de graphes
 
 ---
 
+## 2026-09-01 — Page Missions (calendrier + liste + CRUD complet)
+
+Le propriétaire a fourni 3 nouvelles maquettes (Missions calendrier/liste, Documents,
+Portfolio — thème clair « StudioFlow ») à reskinner dans la direction validée. Il
+demande une validation à chaque page. Missions d'abord (bloc A du brief, le plus
+central). Couleur freelance tranchée : **or** (pas de vert, cohérent avec le CA du
+dashboard) plutôt que de suivre la maquette à la lettre.
+
+**Refactor au passage :** la nav + le guard d'auth (redirection si pas de token),
+jusqu'ici dupliqués dans la page dashboard, sont extraits dans
+`app/(app)/layout.tsx`, commun à toutes les pages protégées. Le dashboard n'a plus
+besoin de son propre header ni de son check de token initial (garde le traitement du
+401 sur le fetch comme filet de sécurité). Le login redirige maintenant vers
+`/missions` (nouvelle page d'accueil post-connexion) plutôt que `/dashboard`, et
+redirige lui-même vers `/missions` si un token est déjà présent.
+
+**Nouveaux composants :**
+
+- `components/ui/` : `Dialog` (modale faite main, fermeture Échap/clic-extérieur),
+  `Select` (natif stylé), `Textarea`, `Pill` (toggle de filtre/formulaire).
+- `components/missions/month-calendar.tsx` : grille calendrier maison (semaine
+  commençant lundi, jours hors mois grisés mais missions débordantes toujours
+  affichées, bouton « + » par jour, chips colorées bleu/or cliquables).
+- `components/missions/missions-list.tsx` : table triable visuellement (titre,
+  client, type, statut, dates, valeur).
+- `components/missions/mission-dialog.tsx` : formulaire création/édition, toggle de
+  type qui bascule les champs (heures/cachets ↔ montant HT/jours), suppression avec
+  confirmation.
+- `lib/types.ts`, `lib/mission-format.ts` : types partagés + libellés/couleurs des
+  enums, réutilisables pour Documents/Projets plus tard.
+
+**Page `(app)/missions`** : filtres Type/Statut (pills multi-sélection) + recherche
+texte (client-side, sur titre/client/note), toggle vue Mois/Liste, navigation
+mois précédent/suivant, bouton « Nouvelle mission » et clic sur une cellule vide
+ouvrent le même dialog (pré-rempli à la bonne date en création).
+
+**Vérifié en conditions réelles (Playwright)** : connexion → `/missions` → création
+d'une mission freelance de 3 jours via une cellule du calendrier → apparaît bien sur
+ses **3 jours** (pas de prorata visuel, cohérent avec la règle métier) → bascule vue
+liste → les 3 missions s'affichent correctement. **0 erreur console.** Suppression
+vérifiée directement en API (`DELETE` → 204, mission bien retirée). Donnée de test
+nettoyée après vérification.
+
+**Prochaine étape :** en attente de validation du propriétaire sur cette page, puis
+Documents (upload, catégories) et Portfolio (fiches projet, lecteur vidéo intégré).
+
+---
+
 ## 2026-09-01 — Vrai dashboard (jauge + aire CA + donut) + validation direction artistique
 
 Le propriétaire a validé la direction artistique sur la page login (« ça dépasse mes

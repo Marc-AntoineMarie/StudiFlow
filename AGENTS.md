@@ -48,7 +48,9 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Direction artistique | ✅ **validée par le propriétaire** — `docs/06-direction-artistique.md` (Space Grotesk + Inter, lucide-react, palette sombre) |
 | Frontend Next.js — socle + login | ✅ fait — testé bout en bout (Playwright), 0 erreur console |
 | Frontend — vrai dashboard (jauge/aire/donut) | ✅ fait — 3 indicateurs du brief, données réelles, Recharts + anneau SVG maison |
-| Modules Documents / Projets / Paramètres (back + front) | ⬜ à faire — **prochaine étape** |
+| Frontend — page Missions (calendrier + liste + CRUD) | ✅ fait — testée bout en bout (Playwright), 0 erreur console |
+| Layout partagé `(app)/layout.tsx` (nav + guard) | ✅ fait — factorisé depuis le dashboard |
+| Modules Documents / Projets / Paramètres (back + front) | ⬜ à faire — **prochaine étape**, en attente de validation Missions |
 | Jeu de données démo (~20 missions / 14 mois) + 1er déploiement VPS | ⬜ à faire |
 | Dossier technique (5 parties) | 🟡 partie a faite, reste à écrire au fil de l'eau |
 
