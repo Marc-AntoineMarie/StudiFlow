@@ -1,0 +1,19 @@
+# Dev image — le code est monté en volume, hot-reload via `next dev`.
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# uid 1000 = utilisateur hôte habituel : évite les fichiers root-owned dans le
+# bind-mount. .next est un volume anonyme (cf. docker-compose.yml) : Docker le
+# seed avec le contenu de l'image à ce chemin, donc on le pré-crée avec les bons
+# droits AVANT de passer en "node", sinon le volume nait root-owned.
+RUN mkdir -p .next && chown -R node:node /app
+USER node
+
+EXPOSE 4000
+CMD ["npm", "run", "dev", "--", "-p", "4000"]
