@@ -1,13 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Clapperboard, Film, LogIn, Mail, Lock, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { apiFetch, ApiError } from '@/lib/api';
-import { saveToken } from '@/lib/auth';
+import { getToken, saveToken } from '@/lib/auth';
 
 interface LoginResponse {
   token: string;
@@ -21,6 +21,11 @@ export default function LoginPage() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
+  // Déjà connecté ? Inutile de revoir le formulaire.
+  useEffect(() => {
+    if (getToken()) router.replace('/missions');
+  }, [router]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
@@ -31,7 +36,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       saveToken(token);
-      router.push('/dashboard');
+      router.push('/missions');
     } catch (err) {
       setErreur(err instanceof ApiError ? err.message : 'Connexion impossible.');
     } finally {
