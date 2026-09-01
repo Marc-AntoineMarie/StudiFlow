@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.next/
+*.log
+
+# env
+.env
+.env.*
+!.env.example
+
+# uploads (fichiers utilisateurs, jamais versionnés)
+uploads/
+
+# OS / IDE
+.DS_Store
