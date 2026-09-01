@@ -1,0 +1,203 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, List, Plus, RotateCcw, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Pill } from '@/components/ui/pill';
+import { MonthCalendar } from '@/components/missions/month-calendar';
+import { MissionsList } from '@/components/missions/missions-list';
+import { MissionDialog } from '@/components/missions/mission-dialog';
+import { apiFetch } from '@/lib/api';
+import { Mission, StatutMission, TypeMission } from '@/lib/types';
+import { STATUT_LABEL, TYPE_LABEL } from '@/lib/mission-format';
+
+const TYPES: TypeMission[] = ['INTERMITTENCE', 'FREELANCE'];
+const STATUTS: StatutMission[] = ['PROPOSEE', 'CONFIRMEE', 'TERMINEE'];
+
+function debutMoisCourant() {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+export default function MissionsPage() {
+  const [vue, setVue] = useState<'mois' | 'liste'>('mois');
+  const [monthCursor, setMonthCursor] = useState<Date>(debutMoisCourant);
+  const [typesActifs, setTypesActifs] = useState<Set<TypeMission>>(new Set());
+  const [statutsActifs, setStatutsActifs] = useState<Set<StatutMission>>(new Set());
+  const [recherche, setRecherche] = useState('');
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [chargement, setChargement] = useState(true);
+  const [dialogOuvert, setDialogOuvert] = useState(false);
+  const [missionActive, setMissionActive] = useState<Mission | null>(null);
+  const [dateParDefaut, setDateParDefaut] = useState<string | undefined>();
+
+  const charger = useCallback(async () => {
+    setChargement(true);
+    const donnees = await apiFetch<Mission[]>('/missions');
+    setMissions(donnees);
+    setChargement(false);
+  }, []);
+
+  useEffect(() => {
+    charger();
+  }, [charger]);
+
+  const missionsFiltrees = useMemo(() => {
+    return missions.filter((m) => {
+      if (typesActifs.size > 0 && !typesActifs.has(m.type)) return false;
+      if (statutsActifs.size > 0 && !statutsActifs.has(m.statut)) return false;
+      if (recherche.trim()) {
+        const q = recherche.trim().toLowerCase();
+        const cible = `${m.titre} ${m.clientOuProduction} ${m.note ?? ''}`.toLowerCase();
+        if (!cible.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [missions, typesActifs, statutsActifs, recherche]);
+
+  function toggle<T>(ensemble: Set<T>, setter: (s: Set<T>) => void, valeur: T) {
+    const suivant = new Set(ensemble);
+    if (suivant.has(valeur)) suivant.delete(valeur);
+    else suivant.add(valeur);
+    setter(suivant);
+  }
+
+  function ouvrirCreation(dateIso?: string) {
+    setMissionActive(null);
+    setDateParDefaut(dateIso);
+    setDialogOuvert(true);
+  }
+
+  function ouvrirEdition(m: Mission) {
+    setMissionActive(m);
+    setDateParDefaut(undefined);
+    setDialogOuvert(true);
+  }
+
+  function changerMois(delta: number) {
+    setMonthCursor((prev) => new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + delta, 1)));
+  }
+
+  const labelMois = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(monthCursor);
+
+  return (
+    <div>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-semibold text-fg">Missions</h1>
+          <p className="mt-1 text-sm text-fg-muted">
+            {missionsFiltrees.length} mission{missionsFiltrees.length > 1 ? 's' : ''} — lecture rapide par régime
+            et statut.
+          </p>
+        </div>
+        <Button onClick={() => ouvrirCreation()}>
+          <Plus size={16} />
+          Nouvelle mission
+        </Button>
+      </div>
+
+      <div className="mb-6 rounded-card border border-subtle bg-card p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            <Button variant={vue === 'mois' ? 'primary' : 'ghost'} onClick={() => setVue('mois')}>
+              <Calendar size={16} />
+              Mois
+            </Button>
+            <Button variant={vue === 'liste' ? 'primary' : 'ghost'} onClick={() => setVue('liste')}>
+              <List size={16} />
+              Liste
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setTypesActifs(new Set());
+              setStatutsActifs(new Set());
+              setRecherche('');
+            }}
+          >
+            <RotateCcw size={14} />
+            Réinitialiser les filtres
+          </Button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-dim">Type</p>
+            <div className="flex flex-wrap gap-2">
+              {TYPES.map((t) => (
+                <Pill key={t} active={typesActifs.has(t)} onClick={() => toggle(typesActifs, setTypesActifs, t)}>
+                  {TYPE_LABEL[t]}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-dim">Statut</p>
+            <div className="flex flex-wrap gap-2">
+              {STATUTS.map((s) => (
+                <Pill
+                  key={s}
+                  active={statutsActifs.has(s)}
+                  onClick={() => toggle(statutsActifs, setStatutsActifs, s)}
+                >
+                  {STATUT_LABEL[s]}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-dim">Recherche</p>
+            <Input
+              icon={<Search size={16} />}
+              placeholder="Client, production ou note"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {vue === 'mois' && (
+        <div className="mb-4 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => changerMois(-1)}
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <p className="w-40 text-center font-heading text-sm font-medium capitalize text-fg">{labelMois}</p>
+          <button
+            type="button"
+            onClick={() => changerMois(1)}
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
+      {chargement && <p className="text-fg-muted">Chargement…</p>}
+
+      {!chargement && vue === 'mois' && (
+        <MonthCalendar
+          monthCursor={monthCursor}
+          missions={missionsFiltrees}
+          onAddDay={ouvrirCreation}
+          onSelectMission={ouvrirEdition}
+        />
+      )}
+      {!chargement && vue === 'liste' && <MissionsList missions={missionsFiltrees} onSelect={ouvrirEdition} />}
+
+      <MissionDialog
+        open={dialogOuvert}
+        onClose={() => setDialogOuvert(false)}
+        onSaved={charger}
+        mission={missionActive}
+        defaultDate={dateParDefaut}
+      />
+    </div>
+  );
+}
