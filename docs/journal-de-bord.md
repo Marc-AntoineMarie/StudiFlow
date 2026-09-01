@@ -6,6 +6,23 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-01 — Premier commit (historique initial, 28 commits)
+
+Tout le travail de la journée était non versionné jusqu'ici. Le propriétaire a demandé
+un historique **granulaire** avant de continuer (« limite fichier par fichier »).
+Comme rien n'avait été commité au fil de l'eau, impossible de rejouer l'historique
+réel intermédiaire (ex. `app.module.ts` ou `docs/03-specifications-techniques.md` ont
+été modifiés plusieurs fois dans la journée, mais seul l'état final existe sur disque).
+Découpage retenu : le plus fin possible **sans jamais laisser un commit dans un état
+cassé** (ex. un contrôleur commité avant le service dont il dépend). `app.module.ts`
+est rattaché au commit `dashboard`, dernier module branché aujourd'hui.
+
+**28 commits**, `docs(cadrage)` → `docs: readme de lancement`, tous sur `main` (pas de
+commit avant celui-ci). Pas de trailer `Co-Authored-By` (demande explicite du
+propriétaire). `.env` vérifié absent de l'index (secrets non versionnés).
+
+---
+
 ## 2026-09-01 — Lancement de la passe de design + module Dashboard + frontend
 
 Le propriétaire a fourni des maquettes (dashboard sombre + page login) : ça lance
