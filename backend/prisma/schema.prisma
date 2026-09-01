@@ -1,0 +1,101 @@
+// Modèle de données Cadré — voir docs/02-modele-de-donnees.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TypeMission {
+  INTERMITTENCE
+  FREELANCE
+}
+
+enum StatutMission {
+  PROPOSEE
+  CONFIRMEE
+  TERMINEE
+}
+
+enum CategorieDocument {
+  CONTRAT
+  ATTESTATION_EMPLOYEUR
+  DEVIS
+  FACTURE
+  AUTRE
+}
+
+enum TagProjet {
+  PRO
+  PERSO
+}
+
+/// Authentification. Une seule ligne en pratique (mono-utilisateur).
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+/// Paramètres métier configurables. Singleton : toujours id = 1.
+model Config {
+  id                Int      @id @default(1)
+  seuilHeures       Int      @default(507)
+  dureeFenetreMois  Int      @default(12)
+  journeeTypeHeures Float    @default(8)
+  heuresParCachet   Float    @default(8)
+  updatedAt         DateTime @updatedAt
+}
+
+model Mission {
+  id                 Int           @id @default(autoincrement())
+  titre              String
+  clientOuProduction String
+  type               TypeMission
+  statut             StatutMission @default(PROPOSEE)
+  dateDebut          DateTime      @db.Date
+  dateFin            DateTime      @db.Date
+  note               String?
+
+  // Intermittence
+  heures    Float?
+  nbCachets Float?
+
+  // Freelance
+  montantHT Float?
+  nbJours   Float?
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id           Int               @id @default(autoincrement())
+  nomFichier   String
+  stockageNom  String            @unique
+  mimeType     String
+  tailleOctets Int
+  categorie    CategorieDocument
+
+  mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  missionId Int?
+
+  createdAt DateTime @default(now())
+}
+
+model Projet {
+  id          Int       @id @default(autoincrement())
+  titre       String
+  description String
+  tag         TagProjet
+  date        DateTime  @db.Date
+  lienVideo   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
