@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clapperboard, Clock, LogOut, PieChart as PieChartIcon, Sparkles, TrendingUp } from 'lucide-react';
+import { Clock, PieChart as PieChartIcon, Sparkles, TrendingUp } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { GaugeHeures } from '@/components/dashboard/gauge-heures';
 import { CaAreaChart } from '@/components/dashboard/ca-area-chart';
 import { RepartitionDonut } from '@/components/dashboard/repartition-donut';
 import { apiFetch, ApiError } from '@/lib/api';
-import { clearToken, getToken } from '@/lib/auth';
+import { clearToken } from '@/lib/auth';
 
 interface Indicateurs {
   jauge: { heuresCumulees: number; seuil: number; pourcentage: number; restant: number };
@@ -18,16 +17,16 @@ interface Indicateurs {
   repartition: { partIntermittence: number; partFreelance: number };
 }
 
+/**
+ * Guard (redirection si non connecté) et navigation sont gérés par
+ * app/(app)/layout.tsx — cette page ne s'occupe que de son contenu.
+ */
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<Indicateurs | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace('/login');
-      return;
-    }
     apiFetch<Indicateurs>('/dashboard')
       .then(setData)
       .catch((err) => {
@@ -40,92 +39,69 @@ export default function DashboardPage() {
       });
   }, [router]);
 
-  function seDeconnecter() {
-    clearToken();
-    router.push('/login');
-  }
-
   return (
-    <main className="min-h-screen bg-app bg-dot-grid p-6 sm:p-10">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-blue/15 text-accent-blue">
-              <Clapperboard size={20} />
-            </span>
-            <div>
-              <p className="font-heading text-sm font-semibold leading-none text-fg">Cadré</p>
-              <p className="mt-1 text-xs text-fg-dim">Monteur vidéo</p>
-            </div>
-          </div>
-          <Button variant="ghost" onClick={seDeconnecter}>
-            <LogOut size={16} />
-            Déconnexion
-          </Button>
-        </header>
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-fg-dim">
+        <Sparkles size={13} className="text-accent-purple" />
+        Tableau de bord
+      </p>
+      <h1 className="mb-8 font-heading text-3xl font-semibold text-fg">Vue d&apos;activité</h1>
 
-        <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-fg-dim">
-          <Sparkles size={13} className="text-accent-purple" />
-          Tableau de bord
-        </p>
-        <h1 className="mb-8 font-heading text-3xl font-semibold text-fg">Vue d&apos;activité</h1>
+      {erreur && <p className="text-accent-pink">{erreur}</p>}
+      {!data && !erreur && <p className="text-fg-muted">Chargement…</p>}
 
-        {erreur && <p className="text-accent-pink">{erreur}</p>}
-        {!data && !erreur && <p className="text-fg-muted">Chargement…</p>}
-
-        {data && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
-                  <Clock size={14} className="text-accent-blue" />
-                  Intermittence
-                </span>
-                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
-                  {data.caParMois.length} mois glissants
-                </span>
-              </div>
-              <GaugeHeures
-                heures={data.jauge.heuresCumulees}
-                seuil={data.jauge.seuil}
-                pourcentage={data.jauge.pourcentage}
-                restant={data.jauge.restant}
-              />
-            </Card>
-
-            <Card className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
-                  <TrendingUp size={14} className="text-accent-gold" />
-                  CA freelance
-                </span>
-                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
-                  {data.caParMois.length} derniers mois
-                </span>
-              </div>
-              <p className="font-heading text-3xl font-semibold text-fg">
-                {data.caTotal.toLocaleString('fr-FR')} €
-              </p>
-              <div className="mt-2">
-                <CaAreaChart data={data.caParMois} />
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <span className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
-                <PieChartIcon size={14} className="text-accent-purple" />
-                Répartition
+      {data && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
+                <Clock size={14} className="text-accent-blue" />
+                Intermittence
               </span>
-              <div className="flex h-full items-center">
-                <RepartitionDonut
-                  partIntermittence={data.repartition.partIntermittence}
-                  partFreelance={data.repartition.partFreelance}
-                />
-              </div>
-            </Card>
-          </div>
-        )}
-      </div>
-    </main>
+              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
+                {data.caParMois.length} mois glissants
+              </span>
+            </div>
+            <GaugeHeures
+              heures={data.jauge.heuresCumulees}
+              seuil={data.jauge.seuil}
+              pourcentage={data.jauge.pourcentage}
+              restant={data.jauge.restant}
+            />
+          </Card>
+
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
+                <TrendingUp size={14} className="text-accent-gold" />
+                CA freelance
+              </span>
+              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
+                {data.caParMois.length} derniers mois
+              </span>
+            </div>
+            <p className="font-heading text-3xl font-semibold text-fg">
+              {data.caTotal.toLocaleString('fr-FR')} €
+            </p>
+            <div className="mt-2">
+              <CaAreaChart data={data.caParMois} />
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <span className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
+              <PieChartIcon size={14} className="text-accent-purple" />
+              Répartition
+            </span>
+            <div className="flex h-full items-center">
+              <RepartitionDonut
+                partIntermittence={data.repartition.partIntermittence}
+                partFreelance={data.repartition.partFreelance}
+              />
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 }
