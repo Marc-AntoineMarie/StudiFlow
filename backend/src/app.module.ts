@@ -8,6 +8,11 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { MissionsModule } from './missions/missions.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { DocumentsModule } from './documents/documents.module';
+import { ProjetsModule } from './projets/projets.module';
+import { ParametresModule } from './parametres/parametres.module';
+import { ExportModule } from './export/export.module';
+import { RappelsModule } from './rappels/rappels.module';
 
 @Module({
   imports: [
@@ -17,6 +22,11 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AuthModule,
     MissionsModule,
     DashboardModule,
+    DocumentsModule,
+    ProjetsModule,
+    ParametresModule,
+    ExportModule,
+    RappelsModule,
   ],
   controllers: [HealthController],
   providers: [
