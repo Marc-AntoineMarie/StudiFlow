@@ -1,0 +1,58 @@
+# Compose de production — à lancer directement SUR le VPS (pas en local).
+# Différences avec docker-compose.yml (dev) :
+#   - images buildées via Dockerfile.prod (code compilé, pas de bind-mount/hot-reload)
+#   - backend et frontend écoutent uniquement sur 127.0.0.1 : seul nginx (reverse
+#     proxy, sur la machine hôte) doit être joignable depuis Internet
+#   - aucun secret en dur : tout vient de ./.env (voir .env.prod.example)
+#
+# Utilisation :
+#   cp .env.prod.example .env   # puis remplir les valeurs (voir commentaires dedans)
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec backend npm run seed:demo   # une fois, pour le jeu de données de démo
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    env_file:
+      - ./.env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:4001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "127.0.0.1:4000:4000"
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  uploads:
