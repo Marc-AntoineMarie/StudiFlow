@@ -6,6 +6,42 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-02 — Incident prod : studiflow.marc-antoinemarie.com servait un autre site
+
+Signalé par le propriétaire : `https://studiflow.marc-antoinemarie.com/login`
+redirigeait vers une autre de ses apps hébergées sur le même VPS. Diagnostiqué à
+distance (pas d'accès SSH, cf. §3.8) via DNS/curl/nginx -T fournis par le
+propriétaire — deux causes distinctes trouvées dans la même investigation :
+
+1. Le fichier vhost s'appelait `studiflow` sans extension `.conf`, contrairement
+   à tous les autres sites du serveur (`xxx.marc-antoinemarie.com.conf`) — erreur
+   de nommage de ma part dans les instructions initiales. Si `nginx.conf` charge
+   les sites via `include sites-enabled/*.conf`, un fichier sans cette extension
+   n'est jamais chargé. **Déjà corrigé côté propriétaire au moment du diagnostic**
+   (fichier renommé), donc pas la cause du problème observé à ce moment précis —
+   mais bien réelle et corrigée dans `deploy/nginx-studiflow.conf` (instructions
+   + gros commentaire d'avertissement) pour ne pas la reproduire sur un futur
+   déploiement propre.
+2. **Cause réelle de l'incident** : `deploy/nginx-studiflow.conf` (dans le dépôt)
+   est volontairement la version HTTP simple d'avant certbot — certbot modifie
+   ensuite le fichier sur le serveur pour y ajouter le bloc HTTPS (443) + la
+   redirection. En recopiant ce fichier sur le VPS pour le correctif de limite
+   d'upload vidéo (`4470982`), le propriétaire a écrasé cette modification :
+   plus aucun bloc `listen 443 ssl;` pour studiflow, donc le port 443 (ce
+   qu'utilise un navigateur) tombait sur le premier autre vhost du serveur.
+   Confirmé en lisant le fichier vhost en clair (aucun bloc 443). Corrigé en
+   relançant `sudo certbot --nginx -d studiflow.marc-antoinemarie.com` (option
+   « réinstaller le certificat existant ») — recrée le bloc HTTPS sans nouveau
+   certificat. Vérifié : `curl` + Playwright réel sur la prod, `<title>Studiflow`
+   correctement servi en HTTPS.
+
+**Retenu pour la suite** : gros avertissement ajouté en tête de
+`deploy/nginx-studiflow.conf` — toute recopie de ce fichier sur le serveur doit
+être suivie d'un nouveau `certbot --nginx -d ...`, sinon HTTPS se casse
+silencieusement à chaque mise à jour de la config nginx.
+
+---
+
 ## 2026-09-02 — 3 retours utilisateur sur la vidéo hébergée (bug bloquant + 2 demandes)
 
 Retours du propriétaire juste après la mise en place de la vidéo hébergée, tous

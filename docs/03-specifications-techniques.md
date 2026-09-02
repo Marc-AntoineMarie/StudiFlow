@@ -137,6 +137,9 @@ Voir `docs/04-regle-12-mois-glissants.md`. Implémentation testée :
   vidéos de portfolio jusqu'à 150 Mo) et des timeouts allongés (300 s) pour
   laisser le temps à l'upload d'une vidéo volumineuse. Fourni comme fichier à
   copier par le propriétaire — non appliqué par l'assistant.
+  **Deux pièges vécus le 2026-09-02** (§ ci-dessous) : nom de fichier sans
+  `.conf` jamais chargé par nginx, et une recopie qui efface le travail de
+  certbot (il faut relancer `certbot --nginx -d ...` après chaque recopie).
 - `.env.prod.example` : gabarit des variables de prod (secrets à générer sur le
   serveur, jamais réutiliser ceux de dev).
 - `scripts/deploy.sh` : à lancer sur le VPS (`git pull` → `up -d --build` →
