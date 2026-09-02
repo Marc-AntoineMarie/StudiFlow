@@ -1,13 +1,14 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiDownloadBlob, apiFetch, ApiError } from '@/lib/api';
 import { Mission, StatutMission, TypeMission } from '@/lib/types';
 import { STATUT_LABEL } from '@/lib/mission-format';
 
@@ -125,6 +126,21 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
     }
   }
 
+  async function onTelechargerPdf() {
+    if (!mission) return;
+    try {
+      const blob = await apiDownloadBlob(`/missions/${mission.id}/recapitulatif.pdf`);
+      const url = URL.createObjectURL(blob);
+      const lien = document.createElement('a');
+      lien.href = url;
+      lien.download = `mission-${mission.id}-recapitulatif.pdf`;
+      lien.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErreur('Génération du PDF impossible.');
+    }
+  }
+
   return (
     <Dialog open={open} onClose={onClose} title={modeEdition ? 'Modifier la mission' : 'Nouvelle mission'}>
       <form className="space-y-4" onSubmit={onSubmit}>
@@ -216,14 +232,24 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
 
         <div className="flex items-center justify-between pt-2">
           {modeEdition ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={enCours}
-              className="text-sm text-accent-pink hover:underline"
-            >
-              Supprimer
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={enCours}
+                className="text-sm text-accent-pink hover:underline"
+              >
+                Supprimer
+              </button>
+              <button
+                type="button"
+                onClick={onTelechargerPdf}
+                className="flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg hover:underline"
+              >
+                <FileText size={14} />
+                Récapitulatif PDF
+              </button>
+            </div>
           ) : (
             <span />
           )}
