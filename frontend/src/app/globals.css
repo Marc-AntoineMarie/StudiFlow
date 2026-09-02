@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Thème sombre par défaut (direction artistique validée le 2026-09-01). Le thème
+ * clair s'active en posant data-theme="light" sur <html> — cf. lib/theme.ts et
+ * components/ui/theme-toggle.tsx. Un script inline dans app/layout.tsx applique le
+ * choix mémorisé avant le premier paint pour éviter le flash de mauvais thème.
+ */
 :root {
   --bg: #080b14;
   --bg-elevated: #10152a;
@@ -14,6 +20,41 @@
   --accent-gold: #f5a524;
   --accent-purple: #8b5cf6;
   --accent-pink: #ec4899;
+
+  /* Remplacent les anciens bg-white/N et bg-black/N codés en dur composant par
+     composant : sans ça, un "blanc à 5%" reste blanc (donc invisible) sur un fond
+     clair. Noms génériques par intensité, pas par cas d'usage. */
+  --surface-1: rgba(255, 255, 255, 0.05); /* remplissages discrets : input, pill, badge */
+  --surface-2: rgba(255, 255, 255, 0.1); /* survol / actif : nav, bouton fantôme, jauge */
+  --surface-3: rgba(255, 255, 255, 0.03); /* très discret : survol de ligne de tableau */
+  --surface-4: rgba(255, 255, 255, 0.07); /* focus d'un champ */
+  --overlay: rgba(0, 0, 0, 0.6); /* fond de modale */
+  --overlay-soft: rgba(0, 0, 0, 0.2); /* survol de vignette portfolio */
+  --dot-color: rgba(255, 255, 255, 0.14);
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --border: rgba(15, 23, 42, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  /* Plus soutenu qu'en sombre : utilisé comme couleur de texte (jauge), pas
+     seulement décorative — #60a5fa serait trop pâle sur fond clair. */
+  --accent-blue-light: #2563eb;
+
+  --surface-1: rgba(15, 23, 42, 0.045);
+  --surface-2: rgba(15, 23, 42, 0.08);
+  --surface-3: rgba(15, 23, 42, 0.035);
+  --surface-4: rgba(15, 23, 42, 0.065);
+  --overlay: rgba(15, 23, 42, 0.45);
+  --overlay-soft: rgba(15, 23, 42, 0.15);
+  --dot-color: rgba(15, 23, 42, 0.12);
+
+  color-scheme: light;
 }
 
 body {
@@ -24,6 +65,13 @@ body {
 
 /* Trame de points décorative, reprise des maquettes (fond du dashboard). */
 .bg-dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
   background-size: 28px 28px;
+}
+
+/* Filet de sécurité explicite pour les <option> des <select> natifs : certains
+   moteurs n'appliquent color-scheme qu'au select lui-même, pas à sa liste. */
+select option {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
 }
