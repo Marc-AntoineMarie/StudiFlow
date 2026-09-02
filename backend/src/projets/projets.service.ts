@@ -1,19 +1,25 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Projet } from '@prisma/client';
+import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateProjetDto } from './dto/create-projet.dto';
 import { UpdateProjetDto } from './dto/update-projet.dto';
 import { QueryProjetsDto } from './dto/query-projets.dto';
 import { estLienVideoValide } from './video-lien';
 
 const MESSAGE_LIEN_INVALIDE = 'Le lien vidéo doit pointer vers YouTube ou Vimeo.';
+export const MIME_VIDEO_AUTORISES = ['video/mp4', 'video/webm', 'video/quicktime'];
 
 @Injectable()
 export class ProjetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(dto: CreateProjetDto): Promise<Projet> {
-    if (!estLienVideoValide(dto.lienVideo)) {
+    if (dto.lienVideo && !estLienVideoValide(dto.lienVideo)) {
       throw new BadRequestException(MESSAGE_LIEN_INVALIDE);
     }
     return this.prisma.projet.create({
@@ -35,18 +41,77 @@ export class ProjetsService {
   }
 
   async update(id: number, dto: UpdateProjetDto): Promise<Projet> {
-    await this.findOne(id);
+    const existant = await this.findOne(id);
     if (dto.lienVideo && !estLienVideoValide(dto.lienVideo)) {
       throw new BadRequestException(MESSAGE_LIEN_INVALIDE);
     }
+
+    // Lien externe et vidéo hébergée sont mutuellement exclusifs : fixer un lien
+    // externe efface une éventuelle vidéo déjà hébergée (fichier + champs).
+    const effaceVideoHebergee = Boolean(dto.lienVideo) && Boolean(existant.videoStockageNom);
+    if (effaceVideoHebergee) {
+      await this.storage.supprimer(existant.videoStockageNom as string);
+    }
+
     return this.prisma.projet.update({
       where: { id },
-      data: { ...dto, date: dto.date ? new Date(dto.date) : undefined },
+      data: {
+        ...dto,
+        date: dto.date ? new Date(dto.date) : undefined,
+        ...(effaceVideoHebergee
+          ? { videoStockageNom: null, videoNomFichier: null, videoMimeType: null, videoTailleOctets: null }
+          : {}),
+      },
     });
   }
 
   async remove(id: number): Promise<void> {
-    await this.findOne(id);
+    const projet = await this.findOne(id);
+    if (projet.videoStockageNom) {
+      await this.storage.supprimer(projet.videoStockageNom);
+    }
     await this.prisma.projet.delete({ where: { id } });
+  }
+
+  /** Upload/remplacement de la vidéo hébergée — efface le lien externe (exclusivité mutuelle). */
+  async uploaderVideo(id: number, file: Express.Multer.File | undefined): Promise<Projet> {
+    if (!file) throw new BadRequestException('Aucun fichier reçu.');
+    if (!MIME_VIDEO_AUTORISES.includes(file.mimetype)) {
+      throw new BadRequestException('Type de fichier non autorisé (mp4, webm, mov uniquement).');
+    }
+
+    const projet = await this.findOne(id);
+    if (projet.videoStockageNom) {
+      await this.storage.supprimer(projet.videoStockageNom);
+    }
+
+    const { stockageNom, tailleOctets } = await this.storage.enregistrer(file.buffer, file.originalname);
+
+    return this.prisma.projet.update({
+      where: { id },
+      data: {
+        lienVideo: null,
+        videoStockageNom: stockageNom,
+        videoNomFichier: file.originalname,
+        videoMimeType: file.mimetype,
+        videoTailleOctets: tailleOctets,
+      },
+    });
+  }
+
+  streamerVideo(stockageNom: string, mimeType: string, req: Request, res: Response): Promise<void> {
+    return this.storage.streamerAvecRange(stockageNom, mimeType, req, res);
+  }
+
+  /** Retire la vidéo hébergée (le projet se retrouve sans vidéo, sauf ajout d'un lien externe ensuite). */
+  async supprimerVideo(id: number): Promise<Projet> {
+    const projet = await this.findOne(id);
+    if (projet.videoStockageNom) {
+      await this.storage.supprimer(projet.videoStockageNom);
+    }
+    return this.prisma.projet.update({
+      where: { id },
+      data: { videoStockageNom: null, videoNomFichier: null, videoMimeType: null, videoTailleOctets: null },
+    });
   }
 }

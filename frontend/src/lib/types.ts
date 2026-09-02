@@ -57,7 +57,12 @@ export interface Projet {
   description: string;
   tag: TagProjet;
   date: string;
-  lienVideo: string;
+  /** Lien externe (YouTube/Vimeo) et vidéo hébergée sont mutuellement exclusifs. */
+  lienVideo: string | null;
+  videoStockageNom: string | null;
+  videoNomFichier: string | null;
+  videoMimeType: string | null;
+  videoTailleOctets: number | null;
   boiteProduction: string | null;
   clients: string[];
   createdAt: string;

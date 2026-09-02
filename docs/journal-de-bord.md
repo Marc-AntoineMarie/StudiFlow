@@ -6,6 +6,64 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-02 — Upload et lecture de vidéo hébergée (portfolio)
+
+Suite directe du lot précédent : le propriétaire a demandé de lever tout de suite
+la limite actée (vidéo YouTube/Vimeo = jamais lisible hors-ligne) en ajoutant un
+vrai système d'upload/lecture vidéo, plutôt que d'attendre — les deux sujets
+étaient liés (idée retenue en roadmap quelques minutes plus tôt).
+
+**Modèle** : `Projet.lienVideo` devient optionnel ; 4 nouveaux champs
+(`videoStockageNom/videoNomFichier/videoMimeType/videoTailleOctets`), tous
+optionnels. Lien externe et vidéo hébergée sont **mutuellement exclusifs** :
+fixer l'un efface l'autre (fichier compris), géré dans `ProjetsService`.
+Migration additive, aucune perte de données (`ALTER COLUMN lienVideo DROP NOT
+NULL` + 4 `ADD COLUMN`).
+
+**Stockage/streaming** : réutilise `StorageService` (déjà en place pour les
+documents) + nouvelle méthode `streamerAvecRange()` — support des requêtes
+`Range` HTTP (206 Partial Content), indispensable pour qu'un `<video>` puisse
+« seek » sans tout charger. Vérifié directement en `curl` (200 sans Range, 206
+avec `Range: bytes=0-999`, `Content-Range` correct).
+
+**Sécurité — deux routes de lecture, deux portées différentes** (sujet posé par
+le propriétaire plus tôt dans la session, appliqué ici concrètement) :
+- `GET /api/projets/:id/video` (propriétaire connecté, prévisualisation dans
+  l'app) — marquée `@Public()` mais avec vérification **manuelle** du JWT, passé
+  en `?token=` : un `<video src="…">` ne peut pas poser de header
+  `Authorization`, c'est le pattern standard pour ce cas. Vérifié : 401 sans
+  token, 200/206 avec.
+- `GET /api/portfolio-liens/:token/video/:projetId` (page publique) — scoping
+  vérifié en base (`projetId` doit appartenir à `lien.projetIds`) : **404 même
+  avec un lien valide** si le projet n'a pas été sélectionné pour CE lien. Même
+  garantie que pour les données JSON du lien public.
+
+**Bug trouvé et corrigé pendant la vérification** : `resoudrePublic()` (route
+publique JSON) ne sélectionnait pas les 4 champs vidéo hébergée dans sa requête
+Prisma — la page publique ne pouvait donc jamais savoir qu'un projet avait une
+vidéo hébergée (bouton « Aperçu » toujours désactivé). Repéré en testant la
+page publique de bout en bout, corrigé, revérifié.
+
+**Frontend** : `ProjetDialog` — bascule Pill « Lien externe » / « Vidéo
+hébergée », dropzone réutilisée (accept vidéo ajouté en prop), lecteur natif +
+suppression dédiée. Vidéo indisponible tant que le projet n'est pas encore créé
+(comme l'attache de documents à une mission). `ProjetCard` (app) et
+`ProjetCardPublic` (page publique) : lecteur `<video>` natif à la place de
+l'iframe YouTube/Vimeo quand une vidéo est hébergée ; miniature = 1ʳᵉ image via
+`preload="metadata"` (pas de génération de vignette côté serveur pour l'instant,
+noté en roadmap). Export hors-ligne : un projet à vidéo hébergée obtient un lien
+« voir en ligne » vers le flux scoping-protégé au lieu du lien YouTube.
+
+**Vérifié en conditions réelles**, pas juste en mocks : vrai fichier `.mp4`
+généré via `ffmpeg` (installé ponctuellement dans le conteneur backend),
+uploadé, lu avec vraie barre de progression et durée exacte dans l'app ET sur
+la page publique, exclusivité mutuelle testée dans les deux sens (upload efface
+le lien externe ; fixer un lien externe supprime le fichier hébergé — confirmé
+sur le disque), suppression dédiée testée sans toucher au reste du projet.
+11 tests backend ajoutés (119 au total), lint + build frontend clean.
+
+---
+
 ## 2026-09-02 — Répartition par client, liaison documents/missions, timeline par année, indicateur de chargement, liens portfolio hors-ligne
 
 Gros lot de retours utilisateur, traités étape par étape avec compte-rendu à

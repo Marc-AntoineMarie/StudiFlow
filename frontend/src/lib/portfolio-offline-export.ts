@@ -1,12 +1,15 @@
 import { Projet } from '@/lib/types';
 import { urlMiniature } from '@/lib/video-embed';
+import { urlVideoHebergeePublique } from '@/lib/video-hebergee';
 import { TAG_LABEL, formatDateProjet } from '@/lib/projet-format';
 
 /**
  * Génère un fichier HTML autonome (CSS inline, images en data: URI) pour une
  * consultation hors-ligne du portfolio sélectionné. La vidéo elle-même ne peut
- * pas être hors-ligne (elle streame depuis YouTube/Vimeo) : on embarque juste
- * la miniature + un lien "voir en ligne", qui ne fonctionnera qu'avec du réseau.
+ * pas être embarquée hors-ligne (fichier trop volumineux pour du base64, ou
+ * streamée depuis YouTube/Vimeo) : on embarque juste une miniature + un lien
+ * "voir en ligne", qui ne fonctionnera qu'avec du réseau — vers le lecteur
+ * intégré YouTube/Vimeo, ou vers le flux hébergé par Studiflow selon le cas.
  */
 
 async function versDataUri(url: string): Promise<string | null> {
@@ -33,11 +36,17 @@ function echapperHtml(texte: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export async function genererHtmlHorsLigne(titre: string | null, projets: Projet[]): Promise<string> {
+export async function genererHtmlHorsLigne(
+  titre: string | null,
+  projets: Projet[],
+  lienToken: string,
+): Promise<string> {
   const cartes = await Promise.all(
     projets.map(async (p) => {
       const miniatureUrl = urlMiniature(p.lienVideo);
       const miniatureData = miniatureUrl ? await versDataUri(miniatureUrl) : null;
+
+      const urlVideo = p.lienVideo ?? (p.videoStockageNom ? urlVideoHebergeePublique(lienToken, p.id) : null);
 
       const tags = [
         p.boiteProduction ? `<span class="badge">${echapperHtml(p.boiteProduction)}</span>` : '',
@@ -61,9 +70,11 @@ export async function genererHtmlHorsLigne(titre: string | null, projets: Projet
             <p class="date">${formatDateProjet(p.date)}</p>
             <p class="description">${echapperHtml(p.description)}</p>
             ${tags ? `<div class="badges">${tags}</div>` : ''}
-            <a class="lien-video" href="${echapperHtml(p.lienVideo)}" target="_blank" rel="noopener noreferrer">
-              Voir la vidéo en ligne ↗
-            </a>
+            ${
+              urlVideo
+                ? `<a class="lien-video" href="${echapperHtml(urlVideo)}" target="_blank" rel="noopener noreferrer">Voir la vidéo en ligne ↗</a>`
+                : ''
+            }
           </div>
         </article>`;
     }),

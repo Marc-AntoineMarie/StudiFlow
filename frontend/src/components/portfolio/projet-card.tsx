@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Projet } from '@/lib/types';
 import { TAG_BADGE_CLASS, TAG_LABEL, formatDateProjet } from '@/lib/projet-format';
 import { urlEmbed, urlMiniature } from '@/lib/video-embed';
+import { urlVideoHebergee } from '@/lib/video-hebergee';
 
 interface ProjetCardProps {
   projet: Projet;
@@ -27,6 +28,8 @@ export function ProjetCard({
   const [apercuOuvert, setApercuOuvert] = useState(false);
   const miniature = urlMiniature(projet.lienVideo);
   const embed = urlEmbed(projet.lienVideo);
+  const videoHebergee = projet.videoStockageNom ? urlVideoHebergee(projet.id) : null;
+  const aUneVideo = Boolean(embed || videoHebergee);
 
   return (
     <Card
@@ -52,6 +55,11 @@ export function ProjetCard({
             // Miniature publique YouTube — pas d'optimisation next/image nécessaire pour une seule vignette.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={miniature} alt="" className="h-full w-full object-cover" />
+          ) : videoHebergee ? (
+            // Pas de génération de vignette côté serveur (pas de ffmpeg) : preload
+            // "metadata" affiche la première image dès qu'elle est disponible.
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video src={videoHebergee} preload="metadata" muted playsInline className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-blue/20 via-accent-purple/20 to-accent-gold/20">
               <Play size={26} className="text-fg-muted" />
@@ -101,7 +109,7 @@ export function ProjetCard({
               <Button
                 variant="ghost"
                 onClick={() => setApercuOuvert((v) => !v)}
-                disabled={!embed}
+                disabled={!aUneVideo}
               >
                 <ChevronDown size={14} className={`transition-transform ${apercuOuvert ? 'rotate-180' : ''}`} />
                 Aperçu
@@ -120,6 +128,12 @@ export function ProjetCard({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        </div>
+      )}
+      {apercuOuvert && !embed && videoHebergee && (
+        <div className="aspect-video w-full border-t border-subtle bg-black">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={videoHebergee} controls className="h-full w-full" />
         </div>
       )}
     </Card>

@@ -4,7 +4,8 @@
  * docs/06 et le module projets côté API).
  */
 
-export function urlEmbed(lienVideo: string): string | null {
+export function urlEmbed(lienVideo: string | null | undefined): string | null {
+  if (!lienVideo) return null;
   try {
     const u = new URL(lienVideo);
     if (u.hostname.includes('youtube.com')) {
@@ -26,7 +27,8 @@ export function urlEmbed(lienVideo: string): string | null {
 }
 
 /** Miniature publique YouTube (pas d'appel API). Pas de miniature simple pour Vimeo. */
-export function urlMiniature(lienVideo: string): string | null {
+export function urlMiniature(lienVideo: string | null | undefined): string | null {
+  if (!lienVideo) return null;
   try {
     const u = new URL(lienVideo);
     if (u.hostname.includes('youtube.com')) {

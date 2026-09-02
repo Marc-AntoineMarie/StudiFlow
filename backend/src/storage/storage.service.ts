@@ -4,6 +4,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { extname, join } from 'node:path';
 import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import type { Request, Response } from 'express';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,6 +45,42 @@ export class StorageService {
 
   cheminComplet(stockageNom: string): string {
     return join(this.dossier, stockageNom);
+  }
+
+  /**
+   * Sert un fichier avec support des requêtes `Range` (HTTP 206) — indispensable
+   * pour qu'un <video> puisse "seek" au lieu de devoir tout charger d'un coup.
+   * `res.download()` (utilisé pour les documents) ne gère pas ça, d'où cette
+   * méthode dédiée, réutilisée par les deux routes de streaming vidéo (privée
+   * et publique via un lien portfolio).
+   */
+  async streamerAvecRange(stockageNom: string, mimeType: string, req: Request, res: Response): Promise<void> {
+    const chemin = this.cheminComplet(stockageNom);
+    const { size } = await stat(chemin);
+    const range = req.headers.range;
+
+    if (!range) {
+      res.writeHead(200, {
+        'Content-Length': size,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes',
+      });
+      createReadStream(chemin).pipe(res);
+      return;
+    }
+
+    const correspondance = /bytes=(\d*)-(\d*)/.exec(range);
+    const debut = correspondance?.[1] ? parseInt(correspondance[1], 10) : 0;
+    const finDemandee = correspondance?.[2] ? parseInt(correspondance[2], 10) : size - 1;
+    const fin = Math.min(finDemandee, size - 1);
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${debut}-${fin}/${size}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': fin - debut + 1,
+      'Content-Type': mimeType,
+    });
+    createReadStream(chemin, { start: debut, end: fin }).pipe(res);
   }
 
   cheminMiniature(stockageNom: string): string {

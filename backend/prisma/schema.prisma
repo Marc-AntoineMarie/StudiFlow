@@ -95,7 +95,15 @@ model Projet {
   description String
   tag         TagProjet
   date        DateTime  @db.Date
-  lienVideo   String
+
+  /// Vidéo : soit un lien externe (YouTube/Vimeo), soit une vidéo hébergée —
+  /// mutuellement exclusifs (fixer l'un efface l'autre, cf. ProjetsService).
+  lienVideo String?
+
+  videoStockageNom  String?
+  videoNomFichier   String?
+  videoMimeType     String?
+  videoTailleOctets Int?
 
   /// Optionnels : le monteur n'a pas toujours de boîte de prod ou de client à citer.
   boiteProduction String?

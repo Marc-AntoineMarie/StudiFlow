@@ -30,7 +30,9 @@
 
 | Évolution | Apport client | Effort |
 |---|---|---|
-| Upload + hébergement de vidéo (au lieu de liens YouTube/Vimeo uniquement) | Résout la limite structurelle des liens de partage hors-ligne (2026-09-02) : la vidéo elle-même ne peut jamais se lire sans connexion tant qu'elle streame depuis une plateforme tierce. Un stockage/lecture vidéo interne permettrait un portfolio réellement autonome. Idée du propriétaire, cohérente avec le brief. | L — stockage de fichiers volumineux, transcodage/format de lecture, lecteur HTML5, coût de stockage à anticiper |
+| ~~Upload + hébergement de vidéo~~ | **Fait le 2026-09-02**, cf. `docs/journal-de-bord.md`. Lien externe (YouTube/Vimeo) et vidéo hébergée restent mutuellement exclusifs par projet. | — |
+| Vignette générée pour une vidéo hébergée (poster ffmpeg) | Actuellement : pas de miniature dédiée, le `<video preload="metadata">` affiche sa 1ʳᵉ image nativement — correct mais pas garanti selon l'encodage. Une vraie vignette serait plus fiable. | S — `ffmpeg -ss 1 -frames:v 1`, même approche que `pdftoppm` pour les documents |
+| Vidéo hébergée incluse dans l'export hors-ligne | Actuellement, l'export `.html` hors-ligne d'un projet à vidéo hébergée ne contient qu'un lien "voir en ligne" (comme YouTube/Vimeo) — la vidéo elle-même n'est pas embarquée (fichier bien trop lourd pour du base64 dans un seul fichier HTML). Un vrai bundle hors-ligne demanderait un fichier séparé (zip) ou un format de transfert dédié. | M/L selon l'approche retenue |
 
 ## Module différenciant — alternatives du brief
 

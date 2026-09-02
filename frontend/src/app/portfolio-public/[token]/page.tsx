@@ -9,13 +9,16 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { LienPortfolioPublic, Projet } from '@/lib/types';
 import { TAG_BADGE_CLASS, TAG_LABEL, formatDateProjet } from '@/lib/projet-format';
 import { urlEmbed, urlMiniature } from '@/lib/video-embed';
+import { urlVideoHebergeePublique } from '@/lib/video-hebergee';
 import { genererHtmlHorsLigne, telechargerHtml } from '@/lib/portfolio-offline-export';
 
 /** Carte de lecture seule, sans les actions d'édition (page publique, pas d'auth). */
-function ProjetCardPublic({ projet }: { projet: Projet }) {
+function ProjetCardPublic({ projet, token }: { projet: Projet; token: string }) {
   const [apercuOuvert, setApercuOuvert] = useState(false);
   const miniature = urlMiniature(projet.lienVideo);
   const embed = urlEmbed(projet.lienVideo);
+  const videoHebergee = projet.videoStockageNom ? urlVideoHebergeePublique(token, projet.id) : null;
+  const aUneVideo = Boolean(embed || videoHebergee);
 
   return (
     <Card className="overflow-hidden p-0">
@@ -24,6 +27,9 @@ function ProjetCardPublic({ projet }: { projet: Projet }) {
           {miniature ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={miniature} alt="" className="h-full w-full object-cover" />
+          ) : videoHebergee ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video src={videoHebergee} preload="metadata" muted playsInline className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-blue/20 via-accent-purple/20 to-accent-gold/20">
               <Play size={26} className="text-fg-muted" />
@@ -43,7 +49,7 @@ function ProjetCardPublic({ projet }: { projet: Projet }) {
             variant="ghost"
             className="mt-3"
             onClick={() => setApercuOuvert((v) => !v)}
-            disabled={!embed}
+            disabled={!aUneVideo}
           >
             <ChevronDown size={14} className={`transition-transform ${apercuOuvert ? 'rotate-180' : ''}`} />
             Aperçu
@@ -59,6 +65,12 @@ function ProjetCardPublic({ projet }: { projet: Projet }) {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        </div>
+      )}
+      {apercuOuvert && !embed && videoHebergee && (
+        <div className="aspect-video w-full border-t border-subtle bg-black">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={videoHebergee} controls className="h-full w-full" />
         </div>
       )}
     </Card>
@@ -87,7 +99,7 @@ export default function PortfolioPublicPage() {
     if (!donnees) return;
     setEnExport(true);
     try {
-      const html = await genererHtmlHorsLigne(donnees.titre, donnees.projets);
+      const html = await genererHtmlHorsLigne(donnees.titre, donnees.projets, String(params.token));
       const nom = (donnees.titre ?? 'portfolio').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       telechargerHtml(html, `${nom || 'portfolio'}.html`);
     } finally {
@@ -129,7 +141,7 @@ export default function PortfolioPublicPage() {
 
             <div className="grid gap-4">
               {donnees.projets.map((p) => (
-                <ProjetCardPublic key={p.id} projet={p} />
+                <ProjetCardPublic key={p.id} projet={p} token={String(params.token)} />
               ))}
               {donnees.projets.length === 0 && (
                 <p className="py-10 text-center text-sm text-fg-muted">

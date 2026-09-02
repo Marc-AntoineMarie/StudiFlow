@@ -75,7 +75,8 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Documents ↔ missions : liaison bidirectionnelle | ✅ fait — upload direct + aperçu au survol depuis la mission, réassignation depuis les documents, rappels cliquables |
 | Missions : timeline par année (année courante par défaut, navigable) | ✅ fait |
 | Indicateur de chargement global | ✅ fait — barre fine pilotée par un compteur partagé sur `apiFetch`/`apiDownloadBlob` |
-| Portfolio : liens de partage publics + export hors-ligne | ✅ fait — `LienPortfolio` (token, révocable), route publique isolée aux seuls projets sélectionnés, page `/portfolio-public/[token]`, fichier `.html` autonome vérifié en `file://`. Limite actée : la vidéo ne se lit pas hors-ligne (streamée YouTube/Vimeo) — roadmap : upload/lecture vidéo interne |
+| Portfolio : liens de partage publics + export hors-ligne | ✅ fait — `LienPortfolio` (token, révocable), route publique isolée aux seuls projets sélectionnés, page `/portfolio-public/[token]`, fichier `.html` autonome vérifié en `file://`. |
+| Portfolio : upload + lecture de vidéo hébergée | ✅ fait — lien externe (YouTube/Vimeo) et vidéo hébergée mutuellement exclusifs par projet, streaming avec support `Range` (206), lecture protégée par JWT en `?token=` dans l'app, scoping au token du lien sur la page publique (vérifié : 404 si le projet n'est pas dans la sélection). Limite restante : la vidéo hébergée n'est pas embarquée dans l'export hors-ligne (fichier trop volumineux pour du base64) — roadmap |
 
 Journal détaillé des changements : `docs/journal-de-bord.md`.
 

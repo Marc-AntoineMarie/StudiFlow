@@ -16,8 +16,10 @@ export class CreateProjetDto {
   @IsDateString()
   date!: string;
 
+  /** Optionnel : une vidéo hébergée peut être ajoutée après coup (POST /:id/video). */
   @IsUrl()
-  lienVideo!: string; // domaine YouTube/Vimeo vérifié dans le service
+  @IsOptional()
+  lienVideo?: string; // domaine YouTube/Vimeo vérifié dans le service
 
   /** Optionnel : le monteur n'a pas toujours de boîte de prod à citer. */
   @IsString()

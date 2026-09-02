@@ -9,9 +9,21 @@ interface UploadDropzoneProps {
   disabled?: boolean;
   /** Version resserrée (padding réduit) pour un contexte étroit comme un dialog. */
   compact?: boolean;
+  /** Attribut `accept` du champ fichier natif. Défaut : documents (pdf/image). */
+  accept?: string;
+  /** Texte affiché au-dessus du bouton, en version non compacte. */
+  label?: string;
 }
 
-export function UploadDropzone({ onFileSelected, disabled, compact }: UploadDropzoneProps) {
+const ACCEPT_PAR_DEFAUT = '.pdf,.png,.jpg,.jpeg,.webp';
+
+export function UploadDropzone({
+  onFileSelected,
+  disabled,
+  compact,
+  accept = ACCEPT_PAR_DEFAUT,
+  label = 'Déposez PDF ou images',
+}: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [survole, setSurvole] = useState(false);
 
@@ -41,7 +53,7 @@ export function UploadDropzone({ onFileSelected, disabled, compact }: UploadDrop
       } ${survole ? 'border-accent-blue bg-accent-blue/5' : 'border-subtle bg-[var(--surface-3)]'}`}
     >
       <UploadCloud size={compact ? 20 : 28} className={compact ? 'mb-1.5 text-fg-dim' : 'mb-3 text-fg-dim'} />
-      {!compact && <p className="font-medium text-fg">Déposez PDF ou images</p>}
+      {!compact && <p className="font-medium text-fg">{label}</p>}
       <p className={`text-fg-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
         {compact ? 'Déposez ou cliquez' : 'Ou cliquez pour sélectionner un document.'}
       </p>
@@ -56,7 +68,7 @@ export function UploadDropzone({ onFileSelected, disabled, compact }: UploadDrop
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.webp"
+        accept={accept}
         className="hidden"
         onChange={onChange}
       />
