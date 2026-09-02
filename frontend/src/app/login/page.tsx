@@ -6,6 +6,7 @@ import { Clapperboard, Film, LogIn, Mail, Lock, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { apiFetch, ApiError } from '@/lib/api';
 import { getToken, saveToken } from '@/lib/auth';
 
@@ -45,7 +46,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-app bg-dot-grid px-6 py-16">
+    <main className="relative flex min-h-screen items-center justify-center bg-app bg-dot-grid px-6 py-16">
+      <div className="absolute right-6 top-6">
+        <ThemeToggle />
+      </div>
       <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-2">
         {/* Panneau décoratif — composition graphique (pas de photo externe, cf. docs/06) */}
         <div className="relative order-2 overflow-hidden rounded-card border border-subtle bg-card p-10 lg:order-1">
