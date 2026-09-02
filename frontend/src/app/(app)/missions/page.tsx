@@ -46,6 +46,7 @@ function MissionsPageInterieur() {
   const searchParams = useSearchParams();
   const [vue, setVue] = useState<'mois' | 'liste' | 'timeline'>('mois');
   const [monthCursor, setMonthCursor] = useState<Date>(debutMoisCourant);
+  const [anneeTimeline, setAnneeTimeline] = useState<number>(() => new Date().getFullYear());
   const [typesActifs, setTypesActifs] = useState<Set<TypeMission>>(new Set());
   const [statutsActifs, setStatutsActifs] = useState<Set<StatutMission>>(new Set());
   const [recherche, setRecherche] = useState('');
@@ -90,6 +91,12 @@ function MissionsPageInterieur() {
       return true;
     });
   }, [missions, typesActifs, statutsActifs, recherche]);
+
+  // Timeline : une seule année à la fois (regroupée par mois de date de début),
+  // année courante par défaut, navigable.
+  const missionsTimeline = useMemo(() => {
+    return missionsFiltrees.filter((m) => new Date(m.dateDebut).getUTCFullYear() === anneeTimeline);
+  }, [missionsFiltrees, anneeTimeline]);
 
   function toggle<T>(ensemble: Set<T>, setter: (s: Set<T>) => void, valeur: T) {
     const suivant = new Set(ensemble);
@@ -243,6 +250,26 @@ function MissionsPageInterieur() {
         </div>
       )}
 
+      {vue === 'timeline' && (
+        <div className="mb-4 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => setAnneeTimeline((a) => a - 1)}
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-[var(--surface-1)] hover:text-fg"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <p className="w-40 text-center font-heading text-sm font-medium text-fg">{anneeTimeline}</p>
+          <button
+            type="button"
+            onClick={() => setAnneeTimeline((a) => a + 1)}
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-[var(--surface-1)] hover:text-fg"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
       {chargement && <p className="text-fg-muted">Chargement…</p>}
 
       {!chargement && vue === 'mois' && (
@@ -255,7 +282,7 @@ function MissionsPageInterieur() {
       )}
       {!chargement && vue === 'liste' && <MissionsList missions={missionsFiltrees} onSelect={ouvrirEdition} />}
       {!chargement && vue === 'timeline' && (
-        <TimelineView missions={missionsFiltrees} onSelect={ouvrirEdition} />
+        <TimelineView missions={missionsTimeline} onSelect={ouvrirEdition} />
       )}
 
       <MissionDialog

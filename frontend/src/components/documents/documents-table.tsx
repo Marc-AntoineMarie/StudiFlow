@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, FileText, Link2, Trash2 } from 'lucide-react';
+import { Download, Link2, Trash2 } from 'lucide-react';
 import { AppDocument, Mission } from '@/lib/types';
 import { CATEGORIE_LABEL, formatDate, formatTaille } from '@/lib/document-format';
-import { apiDownloadBlob } from '@/lib/api';
 import { Select } from '@/components/ui/select';
+import { ThumbnailPopover } from '@/components/documents/thumbnail-popover';
+import { useThumbnailHover } from '@/lib/use-thumbnail-hover';
 
 interface DocumentsTableProps {
   documents: AppDocument[];
@@ -19,8 +20,6 @@ interface DocumentsTableProps {
   onLierMission: (doc: AppDocument, missionId: number | null) => Promise<void>;
 }
 
-const MIME_AVEC_VIGNETTE = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
-
 export function DocumentsTable({
   documents,
   missions,
@@ -30,46 +29,9 @@ export function DocumentsTable({
   onLierMission,
 }: DocumentsTableProps) {
   const router = useRouter();
-  const [survole, setSurvole] = useState<AppDocument | null>(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [urlVignette, setUrlVignette] = useState<string | null>(null);
-  const [chargementVignette, setChargementVignette] = useState(false);
   const [editionMissionId, setEditionMissionId] = useState<number | null>(null);
-  const cache = useRef<Map<number, string | null>>(new Map());
-
-  // Les URL d'objet créées pour les vignettes ne servent qu'à cette page : on les
-  // libère à la fermeture pour ne pas accumuler de mémoire.
-  useEffect(() => {
-    const urls = cache.current;
-    return () => {
-      urls.forEach((url) => url && URL.revokeObjectURL(url));
-    };
-  }, []);
-
-  async function onSurvolLigne(doc: AppDocument) {
-    setSurvole(doc);
-    if (!MIME_AVEC_VIGNETTE.has(doc.mimeType)) {
-      setUrlVignette(null);
-      return;
-    }
-    if (cache.current.has(doc.id)) {
-      setUrlVignette(cache.current.get(doc.id) ?? null);
-      return;
-    }
-    setChargementVignette(true);
-    setUrlVignette(null);
-    try {
-      const blob = await apiDownloadBlob(`/documents/${doc.id}/thumbnail`);
-      const url = URL.createObjectURL(blob);
-      cache.current.set(doc.id, url);
-      setUrlVignette(url);
-    } catch {
-      cache.current.set(doc.id, null); // pas de vignette dispo (ex. autre type) : ne pas retenter
-      setUrlVignette(null);
-    } finally {
-      setChargementVignette(false);
-    }
-  }
+  const vignette = useThumbnailHover();
+  const docSurvole = documents.find((d) => d.id === vignette.survoleId);
 
   if (documents.length === 0) {
     return <p className="py-10 text-center text-sm text-fg-muted">Aucun document ne correspond aux filtres.</p>;
@@ -93,9 +55,9 @@ export function DocumentsTable({
             <tr
               key={doc.id}
               onClick={() => onPreview(doc)}
-              onMouseEnter={() => onSurvolLigne(doc)}
-              onMouseMove={(e) => setPosition({ x: e.clientX, y: e.clientY })}
-              onMouseLeave={() => setSurvole(null)}
+              onMouseEnter={() => vignette.survoler(doc)}
+              onMouseMove={vignette.bouger}
+              onMouseLeave={vignette.quitter}
               className="cursor-pointer border-b border-subtle/60 transition-colors last:border-0 hover:bg-[var(--surface-3)]"
             >
               <td className="px-4 py-3 text-fg">{doc.nomFichier}</td>
@@ -175,23 +137,13 @@ export function DocumentsTable({
         </tbody>
       </table>
 
-      {survole && (
-        <div
-          className="pointer-events-none fixed z-50 w-48 overflow-hidden rounded-card border border-subtle bg-card shadow-lg"
-          style={{ left: position.x + 16, top: position.y + 16 }}
-        >
-          <div className="flex h-32 w-full items-center justify-center bg-[var(--surface-1)]">
-            {chargementVignette ? (
-              <span className="text-xs text-fg-dim">Chargement…</span>
-            ) : urlVignette ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={urlVignette} alt="" className="h-full w-full object-contain" />
-            ) : (
-              <FileText size={28} className="text-fg-dim" />
-            )}
-          </div>
-          <p className="truncate px-2 py-1.5 text-xs text-fg-muted">{survole.nomFichier}</p>
-        </div>
+      {docSurvole && (
+        <ThumbnailPopover
+          position={vignette.position}
+          chargement={vignette.chargement}
+          url={vignette.url}
+          nomFichier={docSurvole.nomFichier}
+        />
       )}
     </div>
   );

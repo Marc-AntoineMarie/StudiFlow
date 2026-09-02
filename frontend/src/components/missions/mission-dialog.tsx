@@ -8,10 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
+import { UploadDropzone } from '@/components/documents/upload-dropzone';
+import { ThumbnailPopover } from '@/components/documents/thumbnail-popover';
+import { useThumbnailHover } from '@/lib/use-thumbnail-hover';
 import { apiDownloadBlob, apiFetch, ApiError } from '@/lib/api';
-import { AppDocument, Mission, StatutMission, TypeMission } from '@/lib/types';
+import { AppDocument, CategorieDocument, Mission, StatutMission, TypeMission } from '@/lib/types';
 import { STATUT_LABEL } from '@/lib/mission-format';
 import { CATEGORIE_LABEL } from '@/lib/document-format';
+
+const CATEGORIES_DOCUMENT: CategorieDocument[] = ['CONTRAT', 'ATTESTATION_EMPLOYEUR', 'DEVIS', 'FACTURE', 'AUTRE'];
 
 interface MissionDialogProps {
   open: boolean;
@@ -78,18 +83,21 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
 
   // Documents attachés à cette mission (édition uniquement).
   const [documentsAttaches, setDocumentsAttaches] = useState<AppDocument[]>([]);
-  const [documentsNonLies, setDocumentsNonLies] = useState<AppDocument[]>([]);
+  // Tous les autres documents (dépôt global OU déjà liés à une autre mission) :
+  // on peut réattacher un document depuis n'importe où, pas seulement le dépôt global.
+  const [documentsDisponibles, setDocumentsDisponibles] = useState<AppDocument[]>([]);
   const [documentAAttacher, setDocumentAAttacher] = useState('');
   const [enCoursDocument, setEnCoursDocument] = useState(false);
+  const [categorieUpload, setCategorieUpload] = useState<CategorieDocument>('AUTRE');
+  const [enTeleversement, setEnTeleversement] = useState(false);
+  const vignette = useThumbnailHover();
+  const docSurvole = documentsAttaches.find((d) => d.id === vignette.survoleId);
 
   const chargerDocuments = useCallback(async () => {
     if (!mission) return;
-    const [attaches, nonLies] = await Promise.all([
-      apiFetch<AppDocument[]>(`/documents?missionId=${mission.id}`),
-      apiFetch<AppDocument[]>('/documents?missionId=none'),
-    ]);
-    setDocumentsAttaches(attaches);
-    setDocumentsNonLies(nonLies);
+    const tous = await apiFetch<AppDocument[]>('/documents');
+    setDocumentsAttaches(tous.filter((d) => d.missionId === mission.id));
+    setDocumentsDisponibles(tous.filter((d) => d.missionId !== mission.id));
   }, [mission]);
 
   useEffect(() => {
@@ -121,13 +129,31 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
     }
     setErreur(null);
     setDocumentsAttaches([]);
-    setDocumentsNonLies([]);
+    setDocumentsDisponibles([]);
     setDocumentAAttacher('');
   }, [open, mission, defaultDate]);
 
   useEffect(() => {
     if (open && mission) chargerDocuments();
   }, [open, mission, chargerDocuments]);
+
+  async function televerserDocument(file: File) {
+    if (!mission) return;
+    setErreur(null);
+    setEnTeleversement(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('categorie', categorieUpload);
+      form.append('missionId', String(mission.id));
+      await apiFetch('/documents', { method: 'POST', body: form });
+      await chargerDocuments();
+    } catch (err) {
+      setErreur(err instanceof ApiError ? err.message : 'Envoi impossible.');
+    } finally {
+      setEnTeleversement(false);
+    }
+  }
 
   async function attacherDocument() {
     if (!mission || !documentAAttacher) return;
@@ -371,7 +397,7 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
           <div className="rounded-lg border border-subtle p-3">
             <p className="mb-2 text-xs font-medium text-fg-muted">Documents attachés</p>
             {documentsAttaches.length === 0 ? (
-              <p className="text-xs text-fg-dim">Aucun document attaché pour l&apos;instant.</p>
+              <p className="mb-3 text-xs text-fg-dim">Aucun document attaché pour l&apos;instant.</p>
             ) : (
               <ul className="mb-3 space-y-1.5">
                 {documentsAttaches.map((doc) => (
@@ -379,6 +405,9 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
                     <button
                       type="button"
                       onClick={() => previsualiserDocument(doc)}
+                      onMouseEnter={() => vignette.survoler(doc)}
+                      onMouseMove={vignette.bouger}
+                      onMouseLeave={vignette.quitter}
                       className="truncate text-left text-fg hover:text-accent-blue-light hover:underline"
                       title={doc.nomFichier}
                     >
@@ -399,13 +428,22 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
               </ul>
             )}
 
-            {documentsNonLies.length > 0 && (
-              <div className="flex items-center gap-2">
+            {docSurvole && (
+              <ThumbnailPopover
+                position={vignette.position}
+                chargement={vignette.chargement}
+                url={vignette.url}
+                nomFichier={docSurvole.nomFichier}
+              />
+            )}
+
+            {documentsDisponibles.length > 0 && (
+              <div className="mb-3 flex items-center gap-2">
                 <Select value={documentAAttacher} onChange={(e) => setDocumentAAttacher(e.target.value)}>
-                  <option value="">Attacher un document du dépôt global…</option>
-                  {documentsNonLies.map((doc) => (
+                  <option value="">Attacher un document existant…</option>
+                  {documentsDisponibles.map((doc) => (
                     <option key={doc.id} value={doc.id}>
-                      {doc.nomFichier}
+                      {doc.nomFichier} — {doc.mission ? `lié à « ${doc.mission.titre} »` : 'dépôt global'}
                     </option>
                   ))}
                 </Select>
@@ -420,6 +458,25 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
                 </button>
               </div>
             )}
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+                Catégorie du nouveau document
+              </label>
+              <Select
+                value={categorieUpload}
+                onChange={(e) => setCategorieUpload(e.target.value as CategorieDocument)}
+              >
+                {CATEGORIES_DOCUMENT.map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORIE_LABEL[c]}
+                  </option>
+                ))}
+              </Select>
+              <div className="mt-2">
+                <UploadDropzone onFileSelected={televerserDocument} disabled={enTeleversement} compact />
+              </div>
+            </div>
           </div>
         )}
 

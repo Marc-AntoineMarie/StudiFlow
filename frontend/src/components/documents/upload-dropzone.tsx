@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 interface UploadDropzoneProps {
   onFileSelected: (file: File) => void;
   disabled?: boolean;
+  /** Version resserrée (padding réduit) pour un contexte étroit comme un dialog. */
+  compact?: boolean;
 }
 
-export function UploadDropzone({ onFileSelected, disabled }: UploadDropzoneProps) {
+export function UploadDropzone({ onFileSelected, disabled, compact }: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [survole, setSurvole] = useState(false);
 
@@ -34,14 +36,21 @@ export function UploadDropzone({ onFileSelected, disabled }: UploadDropzoneProps
       }}
       onDragLeave={() => setSurvole(false)}
       onDrop={onDrop}
-      className={`flex flex-col items-center justify-center rounded-card border border-dashed p-10 text-center transition-colors ${
-        survole ? 'border-accent-blue bg-accent-blue/5' : 'border-subtle bg-[var(--surface-3)]'
-      }`}
+      className={`flex flex-col items-center justify-center rounded-card border border-dashed text-center transition-colors ${
+        compact ? 'p-4' : 'p-10'
+      } ${survole ? 'border-accent-blue bg-accent-blue/5' : 'border-subtle bg-[var(--surface-3)]'}`}
     >
-      <UploadCloud size={28} className="mb-3 text-fg-dim" />
-      <p className="font-medium text-fg">Déposez PDF ou images</p>
-      <p className="mt-1 text-sm text-fg-muted">Ou cliquez pour sélectionner un document.</p>
-      <Button type="button" className="mt-4" onClick={() => inputRef.current?.click()} disabled={disabled}>
+      <UploadCloud size={compact ? 20 : 28} className={compact ? 'mb-1.5 text-fg-dim' : 'mb-3 text-fg-dim'} />
+      {!compact && <p className="font-medium text-fg">Déposez PDF ou images</p>}
+      <p className={`text-fg-muted ${compact ? 'text-xs' : 'mt-1 text-sm'}`}>
+        {compact ? 'Déposez ou cliquez' : 'Ou cliquez pour sélectionner un document.'}
+      </p>
+      <Button
+        type="button"
+        className={compact ? 'mt-2' : 'mt-4'}
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+      >
         {disabled ? 'Envoi…' : 'Choisir des fichiers'}
       </Button>
       <input
