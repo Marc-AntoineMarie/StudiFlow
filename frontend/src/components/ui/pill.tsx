@@ -15,7 +15,7 @@ export function Pill({ active, onClick, children }: PillProps) {
       className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
         active
           ? 'border-accent-blue bg-accent-blue/15 text-accent-blue-light'
-          : 'border-subtle bg-white/5 text-fg-muted hover:text-fg'
+          : 'border-subtle bg-[var(--surface-1)] text-fg-muted hover:text-fg'
       }`}
     >
       {children}

@@ -23,7 +23,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
       onClick={onClose}
     >
       <div
@@ -35,7 +35,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-fg-dim transition-colors hover:bg-white/5 hover:text-fg"
+            className="rounded-lg p-1 text-fg-dim transition-colors hover:bg-[var(--surface-1)] hover:text-fg"
           >
             <X size={18} />
           </button>
