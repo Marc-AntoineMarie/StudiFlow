@@ -54,7 +54,7 @@ export function GaugeHeures({ heures, seuil, pourcentage, restant }: GaugeHeures
           <span className="text-fg-muted">Heures validées</span>
           <span className="font-medium text-fg">{Math.round(heures)} h</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
           <div
             className="h-full rounded-full bg-gradient-to-r from-accent-blue-light to-accent-blue"
             style={{ width: `${Math.round(clamped * 100)}%` }}
@@ -66,7 +66,7 @@ export function GaugeHeures({ heures, seuil, pourcentage, restant }: GaugeHeures
         </div>
       </div>
 
-      <p className="mt-4 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-fg-muted">
+      <p className="mt-4 rounded-lg bg-[var(--surface-1)] px-3 py-2.5 text-sm text-fg-muted">
         Il vous reste <span className="font-medium text-fg">{Math.round(restant)} h</span> pour
         atteindre le seuil de référence.
       </p>

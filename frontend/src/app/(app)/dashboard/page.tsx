@@ -7,8 +7,10 @@ import { Card } from '@/components/ui/card';
 import { GaugeHeures } from '@/components/dashboard/gauge-heures';
 import { CaAreaChart } from '@/components/dashboard/ca-area-chart';
 import { RepartitionDonut } from '@/components/dashboard/repartition-donut';
+import { RappelsPanel } from '@/components/dashboard/rappels-panel';
 import { apiFetch, ApiError } from '@/lib/api';
 import { clearToken } from '@/lib/auth';
+import { Rappel } from '@/lib/types';
 
 interface Indicateurs {
   jauge: { heuresCumulees: number; seuil: number; pourcentage: number; restant: number };
@@ -24,6 +26,7 @@ interface Indicateurs {
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<Indicateurs | null>(null);
+  const [rappels, setRappels] = useState<Rappel[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,6 +40,7 @@ export default function DashboardPage() {
         }
         setErreur('Impossible de charger le tableau de bord.');
       });
+    apiFetch<Rappel[]>('/rappels').then(setRappels).catch(() => setRappels([]));
   }, [router]);
 
   return (
@@ -58,7 +62,7 @@ export default function DashboardPage() {
                 <Clock size={14} className="text-accent-blue" />
                 Intermittence
               </span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
+              <span className="rounded-full bg-[var(--surface-1)] px-2.5 py-1 text-[11px] text-fg-muted">
                 {data.caParMois.length} mois glissants
               </span>
             </div>
@@ -76,7 +80,7 @@ export default function DashboardPage() {
                 <TrendingUp size={14} className="text-accent-gold" />
                 CA freelance
               </span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-fg-muted">
+              <span className="rounded-full bg-[var(--surface-1)] px-2.5 py-1 text-[11px] text-fg-muted">
                 {data.caParMois.length} derniers mois
               </span>
             </div>
@@ -100,6 +104,12 @@ export default function DashboardPage() {
               />
             </div>
           </Card>
+        </div>
+      )}
+
+      {data && (
+        <div className="mt-4 grid gap-4">
+          <RappelsPanel rappels={rappels} />
         </div>
       )}
     </div>
