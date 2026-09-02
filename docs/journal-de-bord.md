@@ -80,6 +80,239 @@ dégradée, donut répartition, cartes secondaires) — bibliothèque de graphes
 
 ---
 
+## 2026-09-02 — Thème clair/sombre, Rappels d'échéance, PDF récapitulatif
+
+Trois demandes du propriétaire après avoir testé l'app : (1) les commits envoyés en
+chat n'avaient pas été retrouvés/lancés — à refournir ; (2) un vrai **thème clair**,
+l'app n'existant qu'en sombre ; (3) deux modules du brief non retenus au départ
+(rappels d'échéance, génération PDF), demandés « en plus » du module différenciant
+déjà livré (export ICS/CSV).
+
+**Thème clair/sombre — plus qu'une palette.** Un premier passage n'aurait changé que
+les variables de fond/texte, mais un grep a montré ~20 usages de `bg-white/N` et
+`bg-black/N` codés en dur dans les composants (Input, Select, Button, Dialog, Pill,
+calendrier, tableaux…) — un « blanc à 5 % » reste blanc, donc invisible, sur fond
+clair. Introduit 6 jetons sémantiques (`--surface-1..4`, `--overlay`,
+`--overlay-soft`) qui remplacent ces valeurs codées en dur partout, définis une fois
+en sombre (`:root`) et une fois en clair (`:root[data-theme='light']`). `--accent-blue-light`
+légèrement assombri en clair (utilisé comme texte, pas seulement décoratif — la
+valeur sombre était trop pâle sur fond blanc). `color-scheme` bascule aussi, pour les
+contrôles natifs (select, date picker).
+
+Bascule et persistance : `lib/theme.ts` + `components/ui/theme-toggle.tsx`, bouton
+soleil/lune dans la nav et sur la page login (hors du layout applicatif). Choix
+mémorisé en `localStorage`, appliqué par un script inline dans `<head>` **avant** le
+premier paint pour éviter un flash du thème sombre par défaut — `suppressHydrationWarning`
+sur `<html>` pour ne pas faire remonter le désaccord SSR/client attendu par
+construction sur ce pattern (le même que next-themes).
+
+Vérifié en Playwright : bascule sombre→clair→sombre, persistance après navigation
+entre pages, 0 erreur console (après le correctif `suppressHydrationWarning`).
+
+**Rappels d'échéance** (`backend/src/rappels/`) : fonction pure `construireRappels`
+combine missions + jauge du dashboard (réutilisation de `DashboardService`, exporté
+depuis `DashboardModule`) pour produire 3 types d'alerte : fin de contrat confirmée
+sous 14 jours, mission terminée sans document rattaché, seuil d'heures ≥ 90 %. 10
+tests. Panneau dédié sur le Dashboard (`RappelsPanel`), état vide « tout est à jour ».
+
+**PDF récapitulatif de mission** (`backend/src/missions/pdf-recapitulatif.ts`,
+`pdfkit`) : `GET /api/missions/:id/recapitulatif.pdf`, protégé. Pas totalement une
+fonction pure (effet = buffer binaire) mais isolée du reste de l'app. Tests limités à
+la structure (signature `%PDF-`, taille non triviale) — un contenu PDF binaire ne se
+prête pas à une assertion fine sans parseur dédié. Bouton « Récapitulatif PDF » dans
+le dialog d'édition de mission (mode édition uniquement).
+
+**76/76 tests backend.** Vérifié en conditions réelles (curl + Playwright) : rappel
+« document manquant » correctement déclenché sur la mission démo `TERMINEE` sans
+document ; PDF téléchargé reconnu comme document PDF valide par `file`.
+
+**Piège Docker (4ᵉ occurrence, mais cette fois le bon réflexe a manqué)** : après
+avoir ajouté `pdfkit` à `package.json`, le premier rebuild backend a été lancé sans
+`--renew-anon-volumes` → `Cannot find module 'pdfkit'` malgré une image reconstruite
+avec la dépendance. Corrigé en relançant avec le flag. Rappel à moi-même : **toujours**
+`--renew-anon-volumes` après un changement de `package.json`, pas seulement après un
+changement de `Dockerfile`.
+
+**Commits** : toujours rien commité (le script donné en chat après le tour précédent
+n'a pas été retrouvé/exécuté). Nouveau script complet redonné en chat pour tout le
+travail non commité à ce jour — toujours à l'initiative du propriétaire, jamais
+executé par Claude sans demande explicite à chaque fois.
+
+**Périmètre différenciant du brief** : les 4 modules proposés en alternative à
+l'export ICS/CSV sont maintenant tous couverts sauf l'upload vidéo direct et la page
+portfolio publique (les deux plus coûteux, cf. `docs/05-roadmap.md`).
+
+---
+
+## 2026-09-01 — Paramètres + module différenciant (export ICS/CSV)
+
+**Backend `parametres/`** : `GET /api/parametres`, `PATCH /api/parametres` sur la
+ligne `Config` (id=1, singleton). Filet de sécurité : si la ligne est absente (ne
+devrait jamais arriver, le seed la crée), `get()` la recrée avec les valeurs par
+défaut plutôt que de planter. 3 tests.
+
+**Backend `export/` (module différenciant du brief)** :
+
+- `ics.ts` : génère un `.ics` (RFC 5545) en pur JS, sans dépendance externe.
+  Point d'attention testé explicitement : `DTEND` d'un événement journée-entière est
+  **exclusif** dans la RFC → toujours `dateFin + 1 jour`, y compris à cheval sur un
+  changement de mois. Échappement des caractères spéciaux (`,` `;` retour ligne).
+- `csv.ts` : génère un `.csv` avec **`;`** comme délimiteur (convention Excel en
+  locale française, où `,` est déjà le séparateur décimal). Échappement RFC 4180.
+- `export.controller.ts` : `GET /api/export/calendar.ics` et
+  `GET /api/export/missions.csv`, tous deux **protégés** (comme le reste de l'API).
+  Le CSV est préfixé d'un BOM UTF-8 pour qu'Excel détecte l'encodage (accents, €) —
+  construit via `String.fromCharCode(0xfeff)` plutôt qu'un caractère littéral collé
+  dans le fichier source (invisible, difficile à éditer/relire de façon fiable).
+- 12 tests (`ics.spec.ts`, `csv.spec.ts`, `export.service.spec.ts`).
+  **62/62 tests backend au total.**
+
+**Frontend** :
+
+- `(app)/parametres` : formulaire des 4 réglages, message de confirmation, ajouté à
+  la nav partagée.
+- Boutons **Export .ics** / **Export .csv** sur la page Missions (à côté de
+  « Nouvelle mission »), même mécanique de téléchargement authentifié que les
+  documents (`apiDownloadBlob` + lien synthétique).
+
+**Vérifié en conditions réelles** :
+
+- `curl` : `GET`/`PATCH /parametres` corrects ; `.ics` téléchargé contient bien
+  `DTEND` = `dateFin + 1 jour` (`20260110` → `20260111`) ; `.csv` contient le BOM,
+  le bon délimiteur, les bonnes colonnes ; les deux routes d'export → `401` sans
+  token.
+- Playwright : formulaire Paramètres → « Enregistrer » → confirmation affichée ;
+  clic sur chaque bouton d'export → téléchargement déclenché avec le bon nom de
+  fichier (`cadre-missions.ics` / `.csv`). 0 erreur console.
+
+**MVP + module différenciant du brief entièrement couverts.** Restent : jeu de
+données de démo réaliste (~20 missions/14 mois) et déploiement VPS — cf.
+`docs/01-note-de-cadrage.md` §3.1 pour le récapitulatif du périmètre.
+
+---
+
+## 2026-09-01 — Portfolio (back + front) + retours sur Documents/Missions/UI
+
+Retours du propriétaire sur ce qui était déjà en ligne, traités dans l'ordre :
+
+**1. Bug UI — `<select>` illisible (options blanches sur fond blanc).** Cause :
+sans indication contraire, le navigateur rend les contrôles natifs (liste
+déroulante, sélecteur de date) avec son thème clair par défaut, même sur une page
+sombre. Fix dans `globals.css` : `color-scheme: dark` sur `:root` (corrige tous les
+contrôles natifs d'un coup) + une règle `select option { background/color }` en
+filet de sécurité. Vérifié : `getComputedStyle` du select confirme `color-scheme:
+dark` et un texte clair.
+
+**2. Documents — pas de vrai moyen de « retrouver » un document.** Les sélecteurs
+Catégorie/Mission de la carte d'upload ne servaient qu'au dépôt, pas à la recherche.
+Ajout d'un second bloc **« Retrouver un document »**, séparé visuellement de
+l'upload : pills de catégorie (multi-sélection), sélecteur de mission (« Toutes »,
+« Dépôt global uniquement », ou une mission précise), recherche texte — tout en
+`useMemo` client-side, cohérent avec le filtrage déjà en place sur Missions.
+
+**3. Missions — nouvelle vue Timeline.** `components/missions/timeline-view.tsx` :
+missions triées par date de début, groupées par mois, alignées sur une ligne
+verticale avec un point coloré (bleu/or selon le type). Volontairement une timeline
+**chronologique simple**, pas un Gantt à couloirs — répond à la demande telle quelle
+sans sur-ingénierie ; un Gantt avec gestion des chevauchements en couloirs reste une
+évolution possible si demandée (le calendrier mensuel affiche déjà les chevauchements
+correctement).
+
+**4. Module Portfolio — back + front, nouveau.**
+
+- Backend `projets/` : CRUD complet, validation du lien vidéo dans
+  `video-lien.ts` (fonction pure, testée seule — 9 cas) : accepte uniquement les
+  domaines YouTube/Vimeo reconnus, rejette le reste en `400`. **Piège rencontré** :
+  `ProjetsService.create` n'était pas déclarée `async` alors qu'elle lève une
+  exception de manière synchrone avant tout `await` → le test
+  `.rejects.toThrow(...)` ne l'attrapait pas (l'exception partait avant même la
+  création de la Promise). Corrigé en ajoutant `async`. **50/50 tests backend.**
+- Frontend `lib/video-embed.ts` : dérive l'URL d'embed (YouTube/Vimeo) et, pour
+  YouTube uniquement, une miniature publique (`img.youtube.com`, aucun appel API).
+  Pas de miniature simple pour Vimeo sans appel `oEmbed` — écarté pour rester simple,
+  un dégradé + icône lecture sert de repli.
+  `components/portfolio/projet-card.tsx` (miniature ou repli, bascule Aperçu = lecteur
+  intégré en accordéon, pas une modale de plus), `projet-dialog.tsx` (formulaire
+  création/édition/suppression, même schéma que `mission-dialog.tsx`).
+- `(app)/portfolio` : filtres tag (Tous/Pro/Perso), recherche, tri par date,
+  bouton « Ajouter un projet ».
+
+**Vérifié en conditions réelles (Playwright)** : création d'un projet Perso avec un
+lien `youtube.com/watch?v=...` depuis la vraie UI → apparaît avec sa miniature réelle
+→ clic sur « Aperçu » → le lecteur intégré s'ouvre en accordéon. 0 erreur console.
+Projets de test supprimés après vérification (un document nommé
+`attestation_hebergement.pdf` trouvé dans la liste n'a **pas** été touché — pas la
+trace d'un des scripts de test, probablement déposé par le propriétaire lui-même en
+explorant l'app).
+
+**MVP frontend quasi complet** : Missions, Dashboard, Documents, Portfolio sont
+construits et validés un par un. Restent : écran Paramètres, module différenciant
+(export ICS/CSV), jeu de données de démo réaliste, puis déploiement VPS.
+
+---
+
+## 2026-09-01 — Module Documents (upload, catégories, téléchargement) — back + front
+
+**Backend :**
+
+- `src/storage/storage.service.ts` (+ `storage.module.ts`) : abstraction disque —
+  `enregistrer(buffer, nomOriginal)` écrit sous un nom **UUID** (anti-collision,
+  anti path-traversal), `supprimer`, `cheminComplet`. Dossier lu depuis `UPLOAD_DIR`
+  (défaut `./uploads`). Prête à être remplacée par un backend S3 (roadmap) sans
+  toucher au reste du module.
+- `documents/` : `POST /api/documents` (upload `multipart/form-data`, `FileInterceptor`
+  en `memoryStorage`, limite **10 Mo**, whitelist MIME `pdf/png/jpeg/webp` vérifiée
+  dans le service — message clair sinon), `GET /api/documents` (filtres `categorie` et
+  `missionId` — `missionId=none` = dépôt global uniquement), `GET
+  /api/documents/:id/download` (authentifié, nom d'origine restitué), `DELETE
+  /api/documents/:id` (supprime le fichier disque **puis** la ligne).
+- Un document rattaché à une mission passe `missionId → null` si la mission est
+  supprimée (`onDelete: SetNull`, déjà dans le schéma) — jamais perdu.
+- 7 tests (`documents.service.spec.ts`) : rejet sans fichier, rejet MIME interdit,
+  rejet mission inexistante, création correcte, filtre `missionId="none"` vs
+  numérique, suppression fichier+ligne, 404 sur suppression d'un document absent.
+  **36/36 tests backend au total.**
+
+**Piège Docker (même famille, sur un volume nommé cette fois) :** `uploads` est un
+**volume nommé** (pas anonyme) dans `docker-compose.yml`. Comme `/app/uploads`
+n'existait pas dans l'image avant, Docker l'a seedé **root-owned** au premier
+`docker compose up`, avant même l'ajout du module Documents → upload en erreur
+`EACCES` dès le premier essai réel. Contrairement à un volume anonyme, `--renew-anon-volumes`
+n'y change rien : il a fallu supprimer explicitement le volume (`docker compose rm -f
+backend && docker volume rm cadre_uploads`) après avoir corrigé le `Dockerfile`
+(pré-création de `uploads/` + `chown` avant `USER node`, même pattern que `dist/` et
+`.next/`). **Leçon generalisée dans `AGENTS.md`/README : tout volume (anonyme ou
+nommé) sur un chemin absent de l'image doit être pré-créé + chown dans le Dockerfile
+avant `USER node`.**
+
+**Frontend :**
+
+- `lib/api.ts` : `apiFetch` détecte un body `FormData` et laisse le navigateur poser
+  le `Content-Type` multipart (sinon boundary manquant → échec silencieux) ; nouvelle
+  fonction `apiDownloadBlob` pour les téléchargements authentifiés (le nom de fichier
+  vient de l'objet déjà en mémoire côté client, pas d'un header `Content-Disposition`
+  à exposer en CORS — plus simple).
+- `components/documents/upload-dropzone.tsx` (drag&drop + sélection classique),
+  `documents-table.tsx` (téléchargement déclenché via `Blob` + lien synthétique,
+  suppression avec confirmation).
+- `(app)/documents` : carte d'upload (catégorie + mission liée en sélecteurs),
+  recherche client-side, table listant tous les documents.
+
+**Vérifié en conditions réelles :**
+
+- `curl` : upload PDF → 201 avec métadonnées correctes ; upload `.exe` → 400 ; liste ;
+  téléchargement → contenu **identique** au fichier envoyé (`diff` sans écart) ; sans
+  token → 401 ; suppression → 204 **et** fichier disparu du disque (vérifié dans le
+  conteneur).
+- Playwright : upload réel depuis la page → apparaît immédiatement dans la table avec
+  la bonne catégorie, la bonne taille, « Dépôt global ». 0 erreur console. Document de
+  test nettoyé après vérification.
+
+**Prochaine étape :** en attente de validation du propriétaire, puis Portfolio
+(dernière page du MVP frontend).
+
+---
+
 ## 2026-09-01 — Page Missions (calendrier + liste + CRUD complet)
 
 Le propriétaire a fourni 3 nouvelles maquettes (Missions calendrier/liste, Documents,

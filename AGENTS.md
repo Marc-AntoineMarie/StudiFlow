@@ -41,17 +41,22 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Spéc + tests règle 12 mois glissants | ✅ fait — `docs/04-regle-12-mois-glissants.md` + `backend/src/calc/` (14 tests verts) |
 | Socle NestJS + Prisma + Docker Compose (dev) | ✅ fait — `docker compose up -d --build` → API + `/api/health` OK, migration `init` + seed |
 | Module Auth (argon2, JWT, guard global, throttler) | ✅ fait — `POST /api/auth/login`, `GET /api/auth/me`, guard global, throttle login 5/min, JWT 12h |
-| Module Missions (CRUD + filtres) | ✅ fait — validation par type, conversion cachets→heures, 26/26 tests |
-| Module Dashboard (branche `calc/`) | ✅ fait — `GET /api/dashboard`, 28/28 tests |
-| Modules Documents / Projets / Paramètres | ⬜ à faire |
-| Module différenciant (export ICS + CSV) | ⬜ à faire |
+| Module Missions (CRUD + filtres) | ✅ fait — validation par type, conversion cachets→heures |
+| Module Dashboard (branche `calc/`) | ✅ fait — `GET /api/dashboard` |
 | Direction artistique | ✅ **validée par le propriétaire** — `docs/06-direction-artistique.md` (Space Grotesk + Inter, lucide-react, palette sombre) |
 | Frontend Next.js — socle + login | ✅ fait — testé bout en bout (Playwright), 0 erreur console |
 | Frontend — vrai dashboard (jauge/aire/donut) | ✅ fait — 3 indicateurs du brief, données réelles, Recharts + anneau SVG maison |
-| Frontend — page Missions (calendrier + liste + CRUD) | ✅ fait — testée bout en bout (Playwright), 0 erreur console |
+| Frontend — page Missions (calendrier + liste + timeline + CRUD) | ✅ fait — testée bout en bout (Playwright), 0 erreur console |
 | Layout partagé `(app)/layout.tsx` (nav + guard) | ✅ fait — factorisé depuis le dashboard |
-| Modules Documents / Projets / Paramètres (back + front) | ⬜ à faire — **prochaine étape**, en attente de validation Missions |
-| Jeu de données démo (~20 missions / 14 mois) + 1er déploiement VPS | ⬜ à faire |
+| Module Documents (back + front) | ✅ fait — upload/liste/téléchargement/suppression + filtres de recherche dédiés |
+| Module Portfolio (back + front) | ✅ fait — CRUD, validation lien YouTube/Vimeo, miniature + lecteur intégré |
+| Correctif UI — `<select>` illisible en thème sombre | ✅ fait — `color-scheme: dark` global |
+| Module Paramètres (back + front) | ✅ fait — `GET`/`PATCH /api/parametres`, formulaire dans la nav |
+| Module différenciant (export ICS + CSV) | ✅ fait — protégé, testé (RFC 5545, RFC 4180), boutons sur la page Missions |
+| Thème clair/sombre | ✅ fait — jetons de surface (pas juste une palette), bouton nav + login, persistance, anti-flash |
+| Rappels d'échéance | ✅ fait — fin de contrat, document manquant, seuil d'heures ; panneau sur le Dashboard |
+| PDF récapitulatif de mission | ✅ fait — `pdfkit`, bouton dans le dialog d'édition |
+| Jeu de données démo (~20 missions / 14 mois) + 1er déploiement VPS | ⬜ à faire — **prochaine étape** |
 | Dossier technique (5 parties) | 🟡 partie a faite, reste à écrire au fil de l'eau |
 
 Journal détaillé des changements : `docs/journal-de-bord.md`.
@@ -174,12 +179,32 @@ Détails et contraintes : `docs/02-modele-de-donnees.md` (à créer).
 ## 6. Conventions
 
 - Langue du domaine : **français** (noms de champs, enums, routes lisibles).
-- Commits : messages courts en français, un sujet par commit, historique lisible.
+- Commits : messages courts en français, conventionnels (`type(scope): message`), un
+  sujet par commit, découpage le plus fin possible sans jamais laisser un commit dans
+  un état cassé. **Ne jamais commit sans l'accord explicite du propriétaire, à chaque
+  fois** — ce n'est pas une pratique automatique, même après un commit précédent dans
+  la même session. Pas de trailer `Co-Authored-By` (demande explicite).
 - Backend : un module Nest par domaine, DTO + `class-validator`, pas de logique métier
   dans les contrôleurs. Le calcul 12 mois glissants reste **pur** et testé.
-- Frontend : composants shadcn/ui par défaut, **aucun** travail de thème/design tant
-  que la passe design n'est pas lancée.
-- Tout changement de schéma → migration Prisma versionnée + commit.
+- Frontend : direction artistique validée le 2026-09-01 (`docs/06-direction-artistique.md`,
+  Space Grotesk + Inter, lucide-react). Thème sombre **et clair** depuis le 2026-09-02
+  (`data-theme` sur `<html>`, cf. `lib/theme.ts`) — composants faits main dans
+  l'esprit shadcn/ui (pas de CLI exécutée). **Jamais** de `bg-white/N` ou `bg-black/N`
+  codé en dur dans un composant : utiliser les jetons `--surface-1..4` / `--overlay*`
+  définis dans `globals.css`, sinon le thème clair casse silencieusement (blanc à 5 %
+  = blanc, donc invisible, sur fond déjà blanc).
+- **Docker — tout volume (nommé ou anonyme) sur un chemin absent de l'image doit être
+  pré-créé + `chown node:node` dans le `Dockerfile`, avant `USER node`.** Sinon Docker
+  le seed root-owned au premier démarrage → `EACCES` à la première écriture (vécu 3
+  fois : `dist/`, `.next/`, `uploads/`). Pour un volume **anonyme** déjà créé
+  root-owned, `--renew-anon-volumes` suffit après correction de l'image ; pour un
+  volume **nommé**, il faut le supprimer explicitement (`docker volume rm ...`) après
+  correction. **Corollaire vécu une 4ᵉ fois** : `--renew-anon-volumes` est nécessaire
+  après **tout** changement de `package.json` (nouvelle dépendance), pas seulement
+  après un changement de `Dockerfile` — sinon `Cannot find module 'x'` malgré une
+  image reconstruite qui contient bien la dépendance.
+- Tout changement de schéma → migration Prisma versionnée + commit (avec l'accord du
+  propriétaire, cf. ci-dessus).
 - Toute fonctionnalité coupée → ligne dans `docs/05-roadmap.md`, pas de code mort.
 
 ---

@@ -10,10 +10,10 @@
 | Backend | **NestJS 11** | Architecture modulaire imposée → séparation des responsabilités claire, attendue au barème. Stack déjà maîtrisée (projet `Synapse-CRM`), gain de temps décisif sur 4,5 jours. |
 | ORM / DB | **Prisma 6 + PostgreSQL 16** | Schéma typé, migrations versionnées, seed simple. `@db.Date` pour les dates de mission (granularité jour). |
 | Auth | **JWT** (email + mot de passe, `argon2`) | Mono-utilisateur : le plus simple qui satisfasse « compte unique et sécurisé ». Magic link écarté (dépendance mail en prod + friction démo). |
-| Frontend | **Next.js (App Router) + shadcn/ui + Tailwind** | Composants prêts (table, dialog, form) → vitesse. Design volontairement minimal au MVP. |
+| Frontend | **Next.js (App Router) + Tailwind** | Composants faits main dans l'esprit shadcn/ui → vitesse. Direction artistique validée le 2026-09-01 (`docs/06-direction-artistique.md`). |
 | Stockage fichiers | **Disque + volume Docker**, servi par route authentifiée | Abstraction `StorageService`, remplacement S3 possible (roadmap). |
-| Conteneurs | **Docker Compose** | README « une commande ». `docker-compose.yml` (dev) + `docker-compose.prod.yml` (VPS). |
-| Tests | **Jest** | Le calcul des 12 mois glissants est une fonction pure testée isolément (14 cas). |
+| Conteneurs | **Docker Compose** | README « une commande ». `docker-compose.yml` (dev) + `docker-compose.prod.yml` (VPS, à écrire). |
+| Tests | **Jest** | Le calcul des 12 mois glissants et les autres règles métier sont des fonctions pures testées isolément. 62 tests backend. |
 | CI | **GitHub Actions** | `npm ci` + `prisma generate` + `lint:ci` + `npm test` à chaque push. |
 
 **Écarté de la stack Synapse** (trop lourd pour un build solo) : WebSocket/Socket.io,
@@ -33,21 +33,21 @@ cadre/
   scripts/                   deploy.sh (à venir)
 ```
 
-### Backend — modules (cible)
+### Backend — modules
 
 - `health/` — `GET /api/health` (teste `SELECT 1`). **Fait.**
-- `auth/` — `POST /api/auth/login`, `GET /api/auth/me`, `JwtAuthGuard` global.
-- `missions/` — CRUD + filtres `type` / `statut`.
+- `auth/` — `POST /api/auth/login`, `GET /api/auth/me`, `JwtAuthGuard` global. **Fait.**
+- `missions/` — CRUD + filtres `type` / `statut`, validation métier (`mission-validation.ts`). **Fait.**
 - `documents/` — upload (multer, 10 Mo, `pdf`/`png`/`jpg`/`webp`), download authentifié,
-  catégorie, rattachement mission ou global.
-- `projets/` — CRUD portfolio, validation lien vidéo YouTube/Vimeo.
-- `parametres/` — `GET` / `PATCH` de la ligne `Config` (id = 1).
+  catégorie, rattachement mission ou global. **Fait.**
+- `projets/` — CRUD portfolio, validation lien vidéo YouTube/Vimeo (`video-lien.ts`). **Fait.**
+- `parametres/` — `GET` / `PATCH` de la ligne `Config` (id = 1). **Fait.**
 - `dashboard/` — `GET /api/dashboard` : charge missions + config, appelle
-  `calc/calculerIndicateurs(...)`, renvoie le JSON.
+  `calc/calculerIndicateurs(...)`, renvoie le JSON. **Fait.**
 - `calc/` — **fonction pure** `rolling-window.ts`, aucune dépendance framework. **Fait.**
-- `export/` — `GET /api/export/calendar.ics`, `GET /api/export/missions.csv`.
+- `export/` — module différenciant du brief, cf. §9. **Fait.**
+- `storage/` — abstraction disque (`storage.service.ts`), utilisée par `documents/`. **Fait.**
 - `prisma/` — `PrismaService` (`@Global`). **Fait.**
-- `common/` — DTO partagés, filtre d'exceptions, pipes, limites upload.
 
 ### Conventions API
 
@@ -78,22 +78,37 @@ Voir `docs/04-regle-12-mois-glissants.md`. Implémentation testée :
   `POST /api/auth/login`. **Fait, vérifié** (le 6ᵉ essai renvoie `429`).
 - `POST /api/auth/login` renvoie toujours `401 Identifiants invalides`, jamais de
   distinction email inconnu / mot de passe incorrect. **Fait.**
-- Aucune donnée, **téléchargement de fichier compris**, accessible sans jeton valide.
+- Aucune donnée, **téléchargement de fichier et exports compris**, accessible sans
+  jeton valide. **Fait, vérifié.**
 - Fichiers jamais servis en statique public ; nom sur disque = UUID (anti path
-  traversal). Limite 10 Mo, types whitelistés.
-- HTTPS assuré par nginx + Let's Encrypt sur le VPS.
+  traversal). Limite 10 Mo, types whitelistés. **Fait.**
+- HTTPS assuré par nginx + Let's Encrypt sur le VPS (déploiement à venir).
 - Transport du token : `localStorage` + header `Authorization: Bearer` au MVP ;
   cookie `httpOnly` = durcissement roadmap.
 
-## 6. Stratégie de stockage des fichiers
+## 6. Stratégie de stockage des fichiers — **fait**
 
 - Dossier `uploads/` monté sur volume Docker (`uploads:/app/uploads`), en dev comme en
-  prod.
-- Base : métadonnées uniquement (`nomFichier`, `stockageNom`, `mimeType`,
+  prod. Chemin lu depuis `UPLOAD_DIR` (variable d'env, défaut `./uploads`).
+- Base : métadonnées uniquement (`nomFichier`, `stockageNom` = UUID, `mimeType`,
   `tailleOctets`, `categorie`, `missionId?`).
-- Accès via `GET /api/documents/:id/download` (authentifié), `Content-Disposition`
-  avec le `nomFichier` d'origine.
-- `StorageService` abstrait pour permettre un backend S3 compatible (roadmap).
+- Upload : `POST /api/documents` en `multipart/form-data`, `FileInterceptor` en
+  `memoryStorage` (le buffer est écrit sur disque par `StorageService`, pas par
+  multer directement — permet de garder la validation MIME et la limite de taille
+  au même endroit, et facilite un remplacement S3 plus tard).
+- Limite **10 Mo**, types autorisés `pdf`/`png`/`jpeg`/`webp` (whitelist stricte,
+  rejet `400` explicite sinon).
+- Accès via `GET /api/documents/:id/download` (authentifié), `res.download()` avec le
+  `nomFichier` d'origine — le frontend n'a pas besoin de lire ce header : il connaît
+  déjà le nom via l'objet chargé en mémoire.
+- Suppression : fichier disque supprimé **puis** ligne en base.
+- `StorageService` abstrait (`enregistrer`/`supprimer`/`cheminComplet`) pour permettre
+  un backend S3 compatible (roadmap) sans toucher au module `documents/`.
+- **Piège Docker rencontré et corrigé** : le volume `uploads` (nommé) naissait
+  root-owned car `/app/uploads` n'existait pas dans l'image — `EACCES` au premier
+  upload. Fix : pré-création + `chown` dans le `Dockerfile` avant `USER node`, plus
+  suppression du volume existant pour repartir d'un état propre. Règle générale
+  ajoutée à `AGENTS.md` §6.
 
 ## 7. Procédure de déploiement (à détailler à l'étape déploiement)
 
@@ -113,3 +128,21 @@ Voir `docs/04-regle-12-mois-glissants.md`. Implémentation testée :
 | backend | 3001 | 4001 |
 | db (Postgres) | 5432 | 5433 |
 | frontend | 4000 | 4000 |
+
+## 9. Export — module différenciant — **fait**
+
+- `GET /api/export/calendar.ics` et `GET /api/export/missions.csv`, **protégés**
+  comme le reste de l'API (aucune route d'export publique).
+- `calc/` mis à part, deux autres fonctions pures suivent le même principe :
+  - `export/ics.ts` : génère un calendrier RFC 5545 sans dépendance externe. Point
+    d'attention testé explicitement : `DTEND` d'un événement journée-entière est
+    **exclusif** → toujours `dateFin + 1 jour`, y compris à cheval sur un changement
+    de mois. Échappement des caractères spéciaux (`,` `;` retour ligne).
+  - `export/csv.ts` : génère un CSV avec **`;`** comme délimiteur (convention Excel
+    en locale française, où `,` est déjà le séparateur décimal). Échappement RFC 4180
+    (guillemets doublés si la valeur contient `;`, `,`, `"` ou un retour ligne).
+- Le CSV est préfixé d'un BOM UTF-8 pour qu'Excel détecte l'encodage (accents, €) —
+  construit via `String.fromCharCode(0xfeff)` plutôt qu'un caractère littéral collé
+  dans le fichier source (invisible, peu fiable à l'édition).
+- Frontend : boutons sur la page Missions, téléchargement authentifié via
+  `apiDownloadBlob` (même mécanique que le téléchargement de documents).

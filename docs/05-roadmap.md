@@ -4,7 +4,7 @@
 > du MVP — coupées consciemment plutôt que codées à moitié (cf. `AGENTS.md` §3.9).
 > Chaque ligne : ce que ça apporte au client + effort estimé (S = quelques heures,
 > M = 1 à 2 jours, L = plus d'un sprint).
-> Dernière mise à jour : 2026-09-01.
+> Dernière mise à jour : 2026-09-02.
 
 ## Dashboard
 
@@ -26,17 +26,28 @@
 |---|---|---|
 | Bascule vers un stockage S3-compatible | Portabilité, pas de dépendance au disque du serveur | S — `StorageService` déjà abstrait pour ça |
 
-## Module différenciant — alternatives non retenues
+## Module différenciant — alternatives du brief
 
-Le groupe a choisi l'export `.ics`/`.csv` (simplicité, fiabilité en démo). Les autres
-options du brief restent des évolutions naturelles :
+Le groupe a choisi l'export `.ics`/`.csv` comme module différenciant officiel
+(simplicité, fiabilité en démo). Deux des autres options du brief ont finalement été
+demandées par le propriétaire **en plus**, et sont faites (2026-09-02) :
+
+- ✅ **Rappels d'échéance** (fin de contrat, document manquant, seuil qui approche) —
+  `backend/src/rappels/`, panneau sur le Dashboard.
+- ✅ **Génération PDF d'un récapitulatif de mission** — `pdfkit`, bouton dans le
+  dialog d'édition d'une mission. *(Un « devis » à proprement parler demanderait des
+  champs hors modèle actuel — lignes de facturation, prix unitaires — non couvert :
+  seul le récapitulatif de mission, qui s'appuie sur les données déjà saisies, a été
+  fait.)*
+
+Restent en roadmap :
 
 | Évolution | Apport client | Effort |
 |---|---|---|
 | Upload vidéo direct (au lieu du lien YouTube/Vimeo) | Portfolio autonome, pas besoin d'un compte tiers | L — stockage volumineux, limite de taille, aperçu |
-| Rappels d'échéance (fin de contrat, document manquant, seuil qui approche) | Réduit le risque d'oubli, cœur du problème initial du client | M — nécessite une notion de notification (mail ou in-app) |
-| Génération PDF d'un devis / récapitulatif de mission | Valorise le travail, utile pour la partie freelance naissante | M |
 | Page portfolio publique partageable sans connexion | Le client peut envoyer un lien à un prospect | M — nouvelle route publique, sélection des projets visibles |
+| Génération PDF d'un vrai devis (lignes, prix unitaires, TVA) | Couvre la partie freelance au-delà du simple récapitulatif | M — nouveau modèle de données |
+| Notification des rappels par e-mail (au lieu d'un panneau in-app uniquement) | Visibilité même sans ouvrir l'app | M — nécessite un service mail fiable en prod |
 
 ## Hors périmètre du brief (rappel, ne pas coder)
 
