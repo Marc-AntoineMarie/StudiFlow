@@ -133,9 +133,10 @@ Voir `docs/04-regle-12-mois-glissants.md`. Implémentation testée :
   du conteneur au runtime).
 - `deploy/nginx-studiflow.conf` : bloc nginx (HTTP, certbot ajoute ensuite le TLS)
   proxyfiant `/api/` vers le backend et `/` vers le frontend, avec
-  `client_max_body_size 12m` (défaut nginx = 1 Mo, insuffisant pour les documents
-  jusqu'à 10 Mo). Fourni comme fichier à copier par le propriétaire — non appliqué
-  par l'assistant.
+  `client_max_body_size 160m` (défaut nginx = 1 Mo ; documents jusqu'à 10 Mo,
+  vidéos de portfolio jusqu'à 150 Mo) et des timeouts allongés (300 s) pour
+  laisser le temps à l'upload d'une vidéo volumineuse. Fourni comme fichier à
+  copier par le propriétaire — non appliqué par l'assistant.
 - `.env.prod.example` : gabarit des variables de prod (secrets à générer sur le
   serveur, jamais réutiliser ceux de dev).
 - `scripts/deploy.sh` : à lancer sur le VPS (`git pull` → `up -d --build` →
