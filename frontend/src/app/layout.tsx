@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Cadré',
+  title: 'Studiflow',
   description: "Suivi intermittence et freelance pour monteur vidéo indépendant.",
 };
 

@@ -1,8 +1,8 @@
-# AGENTS.md — Cadré
+# AGENTS.md — Studiflow
 
 > Fichier de reprise pour un assistant IA (ou un développeur) qui arrive sur le projet
 > sans contexte. Lire ce fichier en entier avant de toucher au code.
-> Tenu à jour à chaque session. Dernière mise à jour : 2026-09-01.
+> Tenu à jour à chaque session. Dernière mise à jour : 2026-09-02.
 
 `CLAUDE.md` à la racine pointe vers ce fichier.
 
@@ -10,8 +10,11 @@
 
 ## 1. Ce qu'est le projet
 
-**Cadré** (nom de travail, non figé) est l'outil livré pour le *Workshop client 2* du
-M1 Développeur Full Stack (MyDigitalSchool).
+**Studiflow** (anciennement nommé « Cadré » en interne pendant le développement — nom
+figé le 2026-09-02) est l'outil livré pour le *Workshop client 2* du M1 Développeur
+Full Stack (MyDigitalSchool). Le dépôt git et les identifiants internes (base de
+données, variables d'env par défaut) gardent le nom `cadre` pour ne pas casser
+l'historique — seul le nom **affiché** (UI, titre d'onglet, dossier) change.
 
 **Client** : un monteur vidéo indépendant qui alterne deux régimes d'activité qui **ne
 se comptent pas de la même manière** :
@@ -65,7 +68,8 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Spécifications fonctionnelles (dossier, partie b) | ⬜ à faire |
 | Guide de reprise formel (dossier, partie d) | ⬜ à faire — `AGENTS.md` en couvre une partie côté IA |
 | Dossier exporté en PDF | ⬜ à faire |
-| Jeu de données démo (~20 missions / 14 mois) + 1er déploiement VPS | ⬜ à faire — **prochaine étape** |
+| Jeu de données démo (28 missions / 14 mois, 14 documents, 6 projets) | ✅ fait — `npm run seed:demo`, rejouable sans risque |
+| Déploiement VPS (démo avec compte de test) | 🟡 fichiers prêts et validés en local (`docker-compose.prod.yml`, `Dockerfile.prod` ×2, `deploy/nginx-studiflow.conf`, `.env.prod.example`, `scripts/deploy.sh`) — reste à exécuter **par le propriétaire** sur le VPS (l'IA n'a ni accès SSH ni le droit de toucher nginx, cf. §3.8) |
 | Dossier technique (5 parties) | 🟡 partie a faite, reste à écrire au fil de l'eau |
 
 Journal détaillé des changements : `docs/journal-de-bord.md`.
@@ -108,13 +112,22 @@ Journal détaillé des changements : `docs/journal-de-bord.md`.
    - implémentée comme une **fonction pure** (`calc/`), sans Prisma ni Nest, testée
      unitairement (cas limites : mission à cheval sur la borne, mission `proposée`,
      année bissextile).
-8. **Déploiement** : VPS personnel du propriétaire, nginx + certbot déjà en place.
-   `docker-compose.prod.yml` à la racine (db sans port exposé + backend + frontend).
-   Déploiement par script SSH (`git pull` → `docker compose up -d --build` →
+8. **Déploiement** : VPS personnel du propriétaire (`148.113.207.25`, SSH port
+   `4025`), nginx + certbot déjà en place. Sous-domaine : `studiflow.marc-antoinemarie.com`.
+   `docker-compose.prod.yml` à la racine (db sans port exposé + backend + frontend,
+   `backend`/`frontend` publiés uniquement sur `127.0.0.1`). Mise à jour via
+   `scripts/deploy.sh` (`git pull` → `docker compose up -d --build` →
    `prisma migrate deploy`). GitHub Actions = lint + test uniquement, pas de deploy
-   auto au début. Sous-domaine choisi au moment du déploiement (domaine du
-   propriétaire ou un `desec.io` pour les tests).
-9. **Méthode de travail** : on avance par étapes validées ; le propriétaire valide
+   auto. **Contrainte explicite du propriétaire (2026-09-02, ne pas rouvrir)** :
+   l'assistant IA prépare les fichiers de déploiement et peut vérifier une
+   configuration, mais n'a **pas d'accès SSH complet au VPS** et **ne touche jamais
+   la configuration nginx lui-même** (`deploy/nginx-studiflow.conf` est livré comme
+   fichier à copier/appliquer par le propriétaire). Toute commande sur le serveur est
+   exécutée par le propriétaire.
+9. **Nom du produit** : **Studiflow** (figé le 2026-09-02, au moment du choix du
+   sous-domaine — remplace le nom de travail « Cadré », qui reste seulement le nom du
+   dépôt git et des identifiants internes/dev pour ne pas casser l'historique).
+10. **Méthode de travail** : on avance par étapes validées ; le propriétaire valide
    chaque étape avant de passer à la suivante. **Frontend minimal** tant que le
    propriétaire n'a pas explicitement lancé la passe de design — priorité à « ça
    fonctionne et c'est testable ».
@@ -241,6 +254,7 @@ docker compose logs -f backend
 docker compose exec backend npm test                 # tests unitaires (dont calc/)
 docker compose exec backend npx prisma migrate dev   # nouvelle migration après modif du schema
 docker compose exec backend npm run seed             # re-seed User + Config
+docker compose exec backend npm run seed:demo        # jeu de données de démo (remplace missions/documents/projets)
 docker compose exec backend npm run reset-password -- "nouveau-mdp"   # mot de passe oublié
 docker compose down                                   # arrêt (volumes db_data / uploads conservés)
 
@@ -250,8 +264,14 @@ docker compose up -d --build --renew-anon-volumes
 # Sans Docker (tests only)
 cd backend && npm install && npm test
 
-# Prod (sur le VPS) — à écrire à l'étape déploiement
-# ./scripts/deploy.sh
+# Prod — exécuté PAR LE PROPRIÉTAIRE sur le VPS (pas par l'IA, cf. §3.8)
+# Premier déploiement (une fois nginx + certbot en place côté propriétaire) :
+cp .env.prod.example .env   # remplir : secrets générés sur le serveur, jamais ceux de dev
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend npm run seed:demo   # jeu de données de démo
+
+# Mises à jour suivantes :
+./scripts/deploy.sh
 ```
 
 ---

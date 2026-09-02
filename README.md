@@ -1,4 +1,4 @@
-# Cadré
+# Studiflow
 
 Outil privé pour un monteur vidéo indépendant qui alterne **intermittence du
 spectacle** (heures déclarées, seuil des 507 h sur 12 mois glissants) et **freelance**
@@ -56,6 +56,7 @@ docker compose logs -f backend                        # logs
 docker compose exec backend npm test                  # tests unitaires backend
 docker compose exec backend npx prisma migrate dev     # nouvelle migration après modif du schema
 docker compose exec backend npm run seed               # re-seed User + Config (n'écrase pas le mot de passe existant)
+docker compose exec backend npm run seed:demo          # jeu de données de démo (28 missions, 14 documents, 6 projets)
 docker compose down                                     # arrêt (les volumes db_data / uploads persistent)
 ```
 
@@ -72,6 +73,13 @@ serveur :
 ```bash
 docker compose exec backend npm run reset-password -- "nouveau-mot-de-passe"
 ```
+
+## Déploiement (prod)
+
+Fichiers prêts à la racine : `docker-compose.prod.yml`, `backend/Dockerfile.prod`,
+`frontend/Dockerfile.prod`, `deploy/nginx-studiflow.conf` (à copier soi-même, non
+appliqué automatiquement), `.env.prod.example`, `scripts/deploy.sh`. Détail complet :
+`docs/03-specifications-techniques.md` §7.
 
 ## Tests
 

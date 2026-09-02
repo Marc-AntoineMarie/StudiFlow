@@ -38,7 +38,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-blue/15 text-accent-blue">
                 <Clapperboard size={18} />
               </span>
-              <span className="font-heading text-sm font-semibold text-fg">Cadré</span>
+              <span className="font-heading text-sm font-semibold text-fg">Studiflow</span>
             </div>
             <nav className="hidden gap-1 sm:flex">
               {NAV.map(({ href, label, icon: Icon }) => {

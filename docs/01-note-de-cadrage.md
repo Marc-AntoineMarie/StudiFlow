@@ -1,7 +1,8 @@
 # Note de cadrage — v1
 
 > Workshop client 2 · M1 DFS · Monteur vidéo indépendant (intermittence + freelance)
-> Nom de travail de l'outil : **Cadré** (provisoire, à confirmer)
+> Nom de l'outil : **Studiflow** (nom de travail initial « Cadré », figé le 2026-09-02
+> au moment du choix du sous-domaine de déploiement).
 > Rédacteur : équipe projet · Date : 01/09/2026
 
 ---

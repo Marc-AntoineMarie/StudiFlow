@@ -204,7 +204,7 @@ export default function LoginPage() {
                     icon={<Mail size={16} />}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="demo@cadre.local"
+                    placeholder="demo@studiflow.local"
                   />
                 </div>
 

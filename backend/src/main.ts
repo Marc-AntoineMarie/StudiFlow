@@ -17,7 +17,7 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
-  console.log(`Cadré API prête sur le port ${port} (préfixe /api)`);
+  console.log(`Studiflow API prête sur le port ${port} (préfixe /api)`);
 }
 
 bootstrap();

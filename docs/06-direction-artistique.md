@@ -47,7 +47,7 @@ maquettes). Ajout d'un thème clair = roadmap si demandé.
   externe non fournie/licenciée. Même ambiance (bureau de montage), sans photo réelle.
 - **Nom de marque** : les maquettes affichent des textes de mise en situation
   (« Suivi d'activité », « studioflow.fr »). Le nom de travail retenu pour le projet
-  reste **Cadré** (cf. `docs/01-note-de-cadrage.md`) — à confirmer ou changer par le
+  est **Studiflow** (cf. `docs/01-note-de-cadrage.md`), figé par le
   propriétaire ; le remplacement dans le code est trivial (une chaîne).
 
 ## Composants de base
