@@ -22,7 +22,12 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
+# seed-demo.ts (lancé via ts-node, comme le seed de base) importe directement
+# des fichiers source (ex. ../src/storage/storage.service) — il faut donc le
+# dossier src/ en plus du compilé, pas seulement dist/.
+COPY --from=build /app/src ./src
 
 # Même piège que le volume nommé "uploads" en dev (cf. AGENTS.md §6) : le pré-créer
 # avec les bons droits AVANT de passer en "node".
