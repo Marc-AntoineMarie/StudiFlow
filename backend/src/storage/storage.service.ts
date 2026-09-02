@@ -114,6 +114,34 @@ export class StorageService {
     }
   }
 
+  /**
+   * Extrait une image à 1s d'une vidéo en PNG via `ffmpeg`, même convention de
+   * nommage que les miniatures PDF (réutilise cheminMiniature/miniatureExiste/
+   * supprimerMiniature tels quels). Best-effort : ne bloque jamais l'upload.
+   * `preload="metadata"` seul sur un <video> n'affiche pas toujours une image
+   * (dépend du navigateur/de l'encodage) — d'où une vraie vignette générée.
+   */
+  async genererMiniatureVideo(stockageNom: string): Promise<void> {
+    const cheminVideo = this.cheminComplet(stockageNom);
+    const cheminSortie = this.cheminMiniature(stockageNom);
+    try {
+      await execFileAsync('ffmpeg', [
+        '-y',
+        '-ss',
+        '1',
+        '-i',
+        cheminVideo,
+        '-frames:v',
+        '1',
+        '-vf',
+        'scale=320:-1',
+        cheminSortie,
+      ]);
+    } catch (err) {
+      this.logger.warn(`Miniature vidéo non générée pour ${stockageNom} : ${err}`);
+    }
+  }
+
   async miniatureExiste(stockageNom: string): Promise<boolean> {
     try {
       await stat(this.cheminMiniature(stockageNom));

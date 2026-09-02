@@ -86,6 +86,7 @@ export class ProjetsService {
     }
 
     const { stockageNom, tailleOctets } = await this.storage.enregistrer(file.buffer, file.originalname);
+    await this.storage.genererMiniatureVideo(stockageNom); // best-effort, cf. StorageService
 
     return this.prisma.projet.update({
       where: { id },
@@ -101,6 +102,14 @@ export class ProjetsService {
 
   streamerVideo(stockageNom: string, mimeType: string, req: Request, res: Response): Promise<void> {
     return this.storage.streamerAvecRange(stockageNom, mimeType, req, res);
+  }
+
+  /** Chemin de la vignette générée pour la vidéo hébergée, ou null si absente (best-effort). */
+  async cheminMiniatureVideo(id: number): Promise<string | null> {
+    const projet = await this.findOne(id);
+    if (!projet.videoStockageNom) return null;
+    const existe = await this.storage.miniatureExiste(projet.videoStockageNom);
+    return existe ? this.storage.cheminMiniature(projet.videoStockageNom) : null;
   }
 
   /** Retire la vidéo hébergée (le projet se retrouve sans vidéo, sauf ajout d'un lien externe ensuite). */

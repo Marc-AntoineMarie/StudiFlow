@@ -1,5 +1,9 @@
 import { TagProjet } from '@prisma/client';
 import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+/** '' → undefined, cf. UpdateProjetDto (même piège avec @IsOptional() + @IsUrl()). */
+const videoVideEnUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export class CreateProjetDto {
   @IsString()
@@ -17,6 +21,7 @@ export class CreateProjetDto {
   date!: string;
 
   /** Optionnel : une vidéo hébergée peut être ajoutée après coup (POST /:id/video). */
+  @Transform(videoVideEnUndefined)
   @IsUrl()
   @IsOptional()
   lienVideo?: string; // domaine YouTube/Vimeo vérifié dans le service

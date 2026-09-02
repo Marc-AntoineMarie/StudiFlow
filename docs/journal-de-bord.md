@@ -6,6 +6,50 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-02 — 3 retours utilisateur sur la vidéo hébergée (bug bloquant + 2 demandes)
+
+Retours du propriétaire juste après la mise en place de la vidéo hébergée, tous
+traités dans la foulée :
+
+1. **Bug bloquant** : après avoir uploadé une vidéo hébergée en édition, impossible
+   d'enregistrer le reste du formulaire — `lienVideo must be a URL address`. Cause :
+   le payload envoyait `lienVideo: ''` (chaîne vide) quand la source vidéo était
+   « hébergée », et `@IsOptional()` de class-validator ne saute la validation que
+   pour `undefined`, pas `''` — `@IsUrl()` rejetait donc systématiquement. Corrigé
+   des deux côtés : le frontend envoie `undefined` (la clé est omise du JSON) au
+   lieu de `''`, et les DTOs (`CreateProjetDto`/`UpdateProjetDto`) transforment en
+   plus toute chaîne vide en `undefined` avant validation (défense en profondeur,
+   au cas où un futur appel reproduirait l'erreur).
+
+2. **Upload dès la création** : il fallait auparavant enregistrer le projet avant
+   de pouvoir y attacher une vidéo. `ProjetDialog` crée maintenant le projet à la
+   volée (avec les champs déjà saisis) au premier envoi de fichier si aucun id
+   n'existe encore, puis bascule en mode édition pour le reste de la session —
+   sans ça, cliquer ensuite sur « Créer » aurait produit un doublon. Petit ajout :
+   le bouton « Annuler » devient « Fermer » dans ce cas précis, pour ne pas laisser
+   croire que la vidéo déjà envoyée serait annulée avec lui (elle est persistée
+   immédiatement, comme les documents attachés à une mission).
+
+3. **Miniature noire + pas de lecteur dans le fichier hors-ligne** : `<video
+   preload="metadata">` comme vignette n'affiche pas toujours une image (dépend du
+   navigateur/de l'encodage — confirmé en pratique). Remplacé par une vraie
+   vignette générée côté serveur avec `ffmpeg -ss 1 -frames:v 1` (même convention
+   que les miniatures PDF existantes, réutilise `cheminMiniature`/
+   `miniatureExiste`/`supprimerMiniature` telles quelles). `ffmpeg` ajouté aux deux
+   Dockerfiles (dev + prod). Nouvelles routes de lecture (mêmes règles d'accès que
+   la vidéo elle-même) : `GET /projets/:id/video-thumbnail` (propriétaire,
+   `?token=`) et `GET /portfolio-liens/:token/video-thumbnail/:projetId` (public,
+   scoping vérifié). Conséquence directe : l'export `.html` hors-ligne embarque
+   maintenant un vrai `<video controls>` avec cette vignette en poster, au lieu
+   d'un simple lien « voir en ligne » — lecture directe dans le fichier, sans
+   changer de page, dès que l'appareil a du réseau (vérifié en ouvrant le fichier
+   généré en `file://` pur).
+
+14 tests backend ajoutés (125 au total), lint + build frontend clean. Vérifié de
+bout en bout avec Playwright + un vrai fichier `.mp4` généré via `ffmpeg`.
+
+---
+
 ## 2026-09-02 — Upload et lecture de vidéo hébergée (portfolio)
 
 Suite directe du lot précédent : le propriétaire a demandé de lever tout de suite

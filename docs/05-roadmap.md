@@ -31,8 +31,8 @@
 | Évolution | Apport client | Effort |
 |---|---|---|
 | ~~Upload + hébergement de vidéo~~ | **Fait le 2026-09-02**, cf. `docs/journal-de-bord.md`. Lien externe (YouTube/Vimeo) et vidéo hébergée restent mutuellement exclusifs par projet. | — |
-| Vignette générée pour une vidéo hébergée (poster ffmpeg) | Actuellement : pas de miniature dédiée, le `<video preload="metadata">` affiche sa 1ʳᵉ image nativement — correct mais pas garanti selon l'encodage. Une vraie vignette serait plus fiable. | S — `ffmpeg -ss 1 -frames:v 1`, même approche que `pdftoppm` pour les documents |
-| Vidéo hébergée incluse dans l'export hors-ligne | Actuellement, l'export `.html` hors-ligne d'un projet à vidéo hébergée ne contient qu'un lien "voir en ligne" (comme YouTube/Vimeo) — la vidéo elle-même n'est pas embarquée (fichier bien trop lourd pour du base64 dans un seul fichier HTML). Un vrai bundle hors-ligne demanderait un fichier séparé (zip) ou un format de transfert dédié. | M/L selon l'approche retenue |
+| ~~Vignette générée pour une vidéo hébergée (poster ffmpeg)~~ | **Fait le 2026-09-02** — `ffmpeg -ss 1 -frames:v 1`, même convention que les miniatures PDF. | — |
+| ~~Lecteur intégré pour une vidéo hébergée dans l'export hors-ligne~~ | **Fait le 2026-09-02** — le fichier `.html` exporté embarque un `<video controls>` (poster = vraie vignette en `data:` URI, `src` = flux public scoping-protégé) : lecture directe sans changer de page, dès que l'appareil a du réseau. La vidéo elle-même reste hors du fichier (bien trop lourde pour du base64) ; seule sa lecture nécessite une connexion, comme YouTube/Vimeo. | — |
 
 ## Module différenciant — alternatives du brief
 

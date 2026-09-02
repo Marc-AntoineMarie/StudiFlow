@@ -60,27 +60,35 @@ export class PortfolioLiensService {
   }
 
   /**
-   * Lecture d'une vidéo hébergée depuis un lien public — n'autorise QUE les
-   * projets effectivement sélectionnés pour CE lien (jamais un projet au
-   * hasard par son id) : même garantie que resoudrePublic, appliquée au
-   * streaming vidéo.
+   * N'autorise QUE les projets effectivement sélectionnés pour CE lien (jamais
+   * un projet au hasard par son id) : même garantie que resoudrePublic,
+   * partagée par le streaming vidéo et sa vignette.
    */
-  async streamerVideoPublique(token: string, projetId: number, req: Request, res: Response): Promise<void> {
+  private async projetAutorisePourLien(token: string, projetId: number) {
     const lien = await this.prisma.lienPortfolio.findUnique({ where: { token } });
-    if (!lien || !lien.projetIds.includes(projetId)) {
-      res.status(404).send();
-      return;
-    }
-
-    const projet = await this.prisma.projet.findUnique({
+    if (!lien || !lien.projetIds.includes(projetId)) return null;
+    return this.prisma.projet.findUnique({
       where: { id: projetId },
       select: { videoStockageNom: true, videoMimeType: true },
     });
+  }
+
+  async streamerVideoPublique(token: string, projetId: number, req: Request, res: Response): Promise<void> {
+    const projet = await this.projetAutorisePourLien(token, projetId);
     if (!projet?.videoStockageNom || !projet.videoMimeType) {
       res.status(404).send();
       return;
     }
-
     await this.storage.streamerAvecRange(projet.videoStockageNom, projet.videoMimeType, req, res);
+  }
+
+  async miniatureVideoPublique(token: string, projetId: number, res: Response): Promise<void> {
+    const projet = await this.projetAutorisePourLien(token, projetId);
+    const existe = projet?.videoStockageNom ? await this.storage.miniatureExiste(projet.videoStockageNom) : false;
+    if (!projet?.videoStockageNom || !existe) {
+      res.status(404).send();
+      return;
+    }
+    res.download(this.storage.cheminMiniature(projet.videoStockageNom), 'apercu');
   }
 }

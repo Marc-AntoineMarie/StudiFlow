@@ -9,15 +9,19 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { LienPortfolioPublic, Projet } from '@/lib/types';
 import { TAG_BADGE_CLASS, TAG_LABEL, formatDateProjet } from '@/lib/projet-format';
 import { urlEmbed, urlMiniature } from '@/lib/video-embed';
-import { urlVideoHebergeePublique } from '@/lib/video-hebergee';
+import { urlMiniatureVideoHebergeePublique, urlVideoHebergeePublique } from '@/lib/video-hebergee';
 import { genererHtmlHorsLigne, telechargerHtml } from '@/lib/portfolio-offline-export';
 
 /** Carte de lecture seule, sans les actions d'édition (page publique, pas d'auth). */
 function ProjetCardPublic({ projet, token }: { projet: Projet; token: string }) {
   const [apercuOuvert, setApercuOuvert] = useState(false);
+  const [miniatureVideoEnErreur, setMiniatureVideoEnErreur] = useState(false);
   const miniature = urlMiniature(projet.lienVideo);
   const embed = urlEmbed(projet.lienVideo);
   const videoHebergee = projet.videoStockageNom ? urlVideoHebergeePublique(token, projet.id) : null;
+  const miniatureVideoHebergee = projet.videoStockageNom
+    ? urlMiniatureVideoHebergeePublique(token, projet.id)
+    : null;
   const aUneVideo = Boolean(embed || videoHebergee);
 
   return (
@@ -27,9 +31,14 @@ function ProjetCardPublic({ projet, token }: { projet: Projet; token: string }) 
           {miniature ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={miniature} alt="" className="h-full w-full object-cover" />
-          ) : videoHebergee ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video src={videoHebergee} preload="metadata" muted playsInline className="h-full w-full object-cover" />
+          ) : miniatureVideoHebergee && !miniatureVideoEnErreur ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={miniatureVideoHebergee}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => setMiniatureVideoEnErreur(true)}
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-accent-blue/20 via-accent-purple/20 to-accent-gold/20">
               <Play size={26} className="text-fg-muted" />

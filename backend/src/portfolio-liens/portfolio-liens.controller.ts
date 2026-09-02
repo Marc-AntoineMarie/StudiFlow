@@ -44,4 +44,15 @@ export class PortfolioLiensController {
   ) {
     return this.portfolioLiensService.streamerVideoPublique(token, projetId, req, res);
   }
+
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get(':token/video-thumbnail/:projetId')
+  miniatureVideo(
+    @Param('token') token: string,
+    @Param('projetId', ParseIntPipe) projetId: number,
+    @Res() res: Response,
+  ) {
+    return this.portfolioLiensService.miniatureVideoPublique(token, projetId, res);
+  }
 }

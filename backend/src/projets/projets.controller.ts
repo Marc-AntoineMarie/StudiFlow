@@ -105,6 +105,23 @@ export class ProjetsController {
     await this.projetsService.streamerVideo(projet.videoStockageNom, projet.videoMimeType, req, res);
   }
 
+  /** Même logique que lireVideo, pour la vignette générée (best-effort côté service). */
+  @Public()
+  @Get(':id/video-thumbnail')
+  async lireMiniatureVideo(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('token') token: string | undefined,
+    @Res() res: Response,
+  ) {
+    await this.verifierJeton(token);
+    const chemin = await this.projetsService.cheminMiniatureVideo(id);
+    if (!chemin) {
+      res.status(404).send();
+      return;
+    }
+    res.download(chemin, 'apercu');
+  }
+
   private async verifierJeton(token: string | undefined): Promise<JwtPayload> {
     if (!token) throw new UnauthorizedException('Jeton manquant');
     try {

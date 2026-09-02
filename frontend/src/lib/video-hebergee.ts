@@ -18,3 +18,14 @@ export function urlVideoHebergee(projetId: number): string | null {
 export function urlVideoHebergeePublique(lienToken: string, projetId: number): string {
   return `${API_URL}/portfolio-liens/${lienToken}/video/${projetId}`;
 }
+
+/** Vignette générée côté serveur (ffmpeg) — mêmes règles d'accès que la vidéo elle-même. */
+export function urlMiniatureVideoHebergee(projetId: number): string | null {
+  const token = getToken();
+  if (!token) return null;
+  return `${API_URL}/projets/${projetId}/video-thumbnail?token=${encodeURIComponent(token)}`;
+}
+
+export function urlMiniatureVideoHebergeePublique(lienToken: string, projetId: number): string {
+  return `${API_URL}/portfolio-liens/${lienToken}/video-thumbnail/${projetId}`;
+}

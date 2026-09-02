@@ -19,7 +19,14 @@ describe('ProjetsService', () => {
   let prisma: {
     projet: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock; delete: jest.Mock; findMany: jest.Mock };
   };
-  let storage: { enregistrer: jest.Mock; supprimer: jest.Mock; streamerAvecRange: jest.Mock };
+  let storage: {
+    enregistrer: jest.Mock;
+    supprimer: jest.Mock;
+    streamerAvecRange: jest.Mock;
+    genererMiniatureVideo: jest.Mock;
+    miniatureExiste: jest.Mock;
+    cheminMiniature: jest.Mock;
+  };
   let service: ProjetsService;
 
   const DTO_VALIDE = {
@@ -44,6 +51,9 @@ describe('ProjetsService', () => {
       enregistrer: jest.fn().mockResolvedValue({ stockageNom: 'uuid.mp4', tailleOctets: 7 }),
       supprimer: jest.fn().mockResolvedValue(undefined),
       streamerAvecRange: jest.fn().mockResolvedValue(undefined),
+      genererMiniatureVideo: jest.fn().mockResolvedValue(undefined),
+      miniatureExiste: jest.fn().mockResolvedValue(false),
+      cheminMiniature: jest.fn().mockReturnValue('/app/uploads/uuid.mp4.png'),
     };
     service = new ProjetsService(prisma as unknown as PrismaService, storage as unknown as StorageService);
   });
@@ -119,6 +129,7 @@ describe('ProjetsService', () => {
     prisma.projet.findUnique.mockResolvedValue({ id: 1, videoStockageNom: null });
     await service.uploaderVideo(1, fichierVideo());
     expect(storage.enregistrer).toHaveBeenCalledWith(expect.any(Buffer), 'showreel.mp4');
+    expect(storage.genererMiniatureVideo).toHaveBeenCalledWith('uuid.mp4');
     expect(prisma.projet.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: expect.objectContaining({
@@ -145,5 +156,23 @@ describe('ProjetsService', () => {
       where: { id: 1 },
       data: { videoStockageNom: null, videoNomFichier: null, videoMimeType: null, videoTailleOctets: null },
     });
+  });
+
+  it('cheminMiniatureVideo : null si le projet n’a pas de vidéo hébergée', async () => {
+    prisma.projet.findUnique.mockResolvedValue({ id: 1, videoStockageNom: null });
+    expect(await service.cheminMiniatureVideo(1)).toBeNull();
+    expect(storage.miniatureExiste).not.toHaveBeenCalled();
+  });
+
+  it('cheminMiniatureVideo : null si la vignette n’a pas (encore) été générée', async () => {
+    prisma.projet.findUnique.mockResolvedValue({ id: 1, videoStockageNom: 'uuid.mp4' });
+    storage.miniatureExiste.mockResolvedValue(false);
+    expect(await service.cheminMiniatureVideo(1)).toBeNull();
+  });
+
+  it('cheminMiniatureVideo : renvoie le chemin si la vignette existe', async () => {
+    prisma.projet.findUnique.mockResolvedValue({ id: 1, videoStockageNom: 'uuid.mp4' });
+    storage.miniatureExiste.mockResolvedValue(true);
+    expect(await service.cheminMiniatureVideo(1)).toBe('/app/uploads/uuid.mp4.png');
   });
 });

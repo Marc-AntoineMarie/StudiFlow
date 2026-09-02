@@ -1,5 +1,11 @@
 import { TagProjet } from '@prisma/client';
 import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+/** '' → undefined : le frontend envoie parfois une chaîne vide pour "pas de lien
+ * externe" (cas vidéo hébergée) — @IsOptional() ne l'accepte pas telle quelle
+ * (seul `undefined` saute la validation, pas ''), d'où ce nettoyage en amont. */
+const videoVideEnUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export class UpdateProjetDto {
   @IsString()
@@ -20,6 +26,7 @@ export class UpdateProjetDto {
   @IsOptional()
   date?: string;
 
+  @Transform(videoVideEnUndefined)
   @IsUrl()
   @IsOptional()
   lienVideo?: string;

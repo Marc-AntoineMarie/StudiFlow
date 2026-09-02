@@ -35,8 +35,6 @@ function toDateInput(iso: string) {
 }
 
 export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogProps) {
-  const modeEdition = Boolean(projet);
-
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [tag, setTag] = useState<TagProjet>('PRO');
@@ -47,6 +45,14 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
+  // Id du projet réellement enregistré en base pour cette session de dialog.
+  // Distinct de `projet` (la prop) : téléverser une vidéo avant tout
+  // enregistrement crée le projet à la volée (avec les champs déjà saisis) —
+  // idEffectif bascule alors le dialog en "mode édition" pour le reste de la
+  // session, sans quoi cliquer "Créer" créerait un second projet en double.
+  const [idEffectif, setIdEffectif] = useState<number | null>(null);
+  const modeEdition = idEffectif !== null;
+
   const [sourceVideo, setSourceVideo] = useState<SourceVideo>('externe');
   const [videoActuelle, setVideoActuelle] = useState<VideoHebergeeInfo | null>(null);
   const [enTeleversement, setEnTeleversement] = useState(false);
@@ -54,6 +60,7 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
   useEffect(() => {
     if (!open) return;
     if (projet) {
+      setIdEffectif(projet.id);
       setTitre(projet.titre);
       setDescription(projet.description);
       setTag(projet.tag);
@@ -74,6 +81,7 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
         setVideoActuelle(null);
       }
     } else {
+      setIdEffectif(null);
       setTitre('');
       setDescription('');
       setTag('PRO');
@@ -97,16 +105,17 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
         description,
         tag,
         date,
-        // Vide si une vidéo hébergée est active : le champ est alors juste masqué,
-        // pas question d'écraser la vidéo hébergée avec une chaîne vide.
-        lienVideo: sourceVideo === 'externe' ? lienVideo : '',
+        // undefined (jamais '') si une vidéo hébergée est active : le champ est
+        // alors juste masqué, et une chaîne vide échoue la validation IsUrl()
+        // côté API (seul `undefined` saute @IsOptional()).
+        lienVideo: sourceVideo === 'externe' ? lienVideo : undefined,
         // Chaîne vide envoyée explicitement (pas `undefined`) : permet d'effacer
         // une valeur existante en édition, pas seulement d'en ajouter une.
         boiteProduction: boiteProduction.trim(),
         clients,
       };
-      if (modeEdition && projet) {
-        await apiFetch(`/projets/${projet.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      if (modeEdition && idEffectif) {
+        await apiFetch(`/projets/${idEffectif}`, { method: 'PATCH', body: JSON.stringify(payload) });
       } else {
         await apiFetch('/projets', { method: 'POST', body: JSON.stringify(payload) });
       }
@@ -120,11 +129,11 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
   }
 
   async function onDelete() {
-    if (!projet) return;
-    if (!window.confirm(`Supprimer le projet « ${projet.titre} » ?`)) return;
+    if (!idEffectif) return;
+    if (!window.confirm(`Supprimer le projet « ${titre} » ?`)) return;
     setEnCours(true);
     try {
-      await apiFetch(`/projets/${projet.id}`, { method: 'DELETE' });
+      await apiFetch(`/projets/${idEffectif}`, { method: 'DELETE' });
       onSaved();
       onClose();
     } catch {
@@ -134,14 +143,36 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
     }
   }
 
+  /** Crée le projet à la volée avec les champs déjà saisis, si pas encore enregistré. */
+  async function assurerProjetCree(): Promise<number> {
+    if (idEffectif) return idEffectif;
+    if (!titre.trim() || !description.trim() || !date) {
+      throw new Error('Remplis au moins le titre, la description et la date avant d’ajouter une vidéo.');
+    }
+    const nouveau = await apiFetch<Projet>('/projets', {
+      method: 'POST',
+      body: JSON.stringify({
+        titre,
+        description,
+        tag,
+        date,
+        boiteProduction: boiteProduction.trim() || undefined,
+        clients,
+      }),
+    });
+    setIdEffectif(nouveau.id);
+    onSaved();
+    return nouveau.id;
+  }
+
   async function televerserVideo(file: File) {
-    if (!projet) return;
     setErreur(null);
     setEnTeleversement(true);
     try {
+      const id = await assurerProjetCree();
       const form = new FormData();
       form.append('file', file);
-      const resultat = await apiFetch<Projet>(`/projets/${projet.id}/video`, { method: 'POST', body: form });
+      const resultat = await apiFetch<Projet>(`/projets/${id}/video`, { method: 'POST', body: form });
       setVideoActuelle({
         stockageNom: resultat.videoStockageNom!,
         nomFichier: resultat.videoNomFichier!,
@@ -149,19 +180,18 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
         tailleOctets: resultat.videoTailleOctets!,
       });
       setLienVideo('');
-      onSaved();
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.message : 'Envoi de la vidéo impossible.');
+      setErreur(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Envoi de la vidéo impossible.');
     } finally {
       setEnTeleversement(false);
     }
   }
 
   async function supprimerVideoHebergee() {
-    if (!projet) return;
+    if (!idEffectif) return;
     if (!window.confirm('Supprimer la vidéo hébergée ?')) return;
     try {
-      await apiFetch(`/projets/${projet.id}/video`, { method: 'DELETE' });
+      await apiFetch(`/projets/${idEffectif}/video`, { method: 'DELETE' });
       setVideoActuelle(null);
       onSaved();
     } catch {
@@ -218,15 +248,11 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
               onChange={(e) => setLienVideo(e.target.value)}
               placeholder="https://youtu.be/..."
             />
-          ) : !modeEdition ? (
-            <p className="rounded-lg bg-[var(--surface-1)] px-3 py-2 text-xs text-fg-muted">
-              Enregistrez d&apos;abord le projet — vous pourrez ensuite y attacher une vidéo hébergée.
-            </p>
-          ) : videoActuelle ? (
+          ) : videoActuelle && idEffectif ? (
             <div className="space-y-2">
               <div className="overflow-hidden rounded-lg border border-subtle bg-black">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video src={urlVideoHebergee(projet!.id) ?? undefined} controls className="aspect-video w-full" />
+                <video src={urlVideoHebergee(idEffectif) ?? undefined} controls className="aspect-video w-full" />
               </div>
               <div className="flex items-center justify-between text-xs text-fg-muted">
                 <span className="truncate">
@@ -243,12 +269,19 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
               </div>
             </div>
           ) : (
-            <UploadDropzone
-              onFileSelected={televerserVideo}
-              disabled={enTeleversement}
-              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
-              compact
-            />
+            <>
+              <UploadDropzone
+                onFileSelected={televerserVideo}
+                disabled={enTeleversement}
+                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                compact
+              />
+              {!idEffectif && (
+                <p className="mt-1.5 text-xs text-fg-dim">
+                  Le titre, la description et la date sont enregistrés automatiquement à l&apos;envoi.
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -291,7 +324,7 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
           )}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Annuler
+              {modeEdition && !projet ? 'Fermer' : 'Annuler'}
             </Button>
             <Button type="submit" disabled={enCours}>
               {enCours ? 'Enregistrement…' : modeEdition ? 'Enregistrer' : 'Créer'}

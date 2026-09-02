@@ -1,7 +1,7 @@
 # Dev image — le code est monté en volume, hot-reload via `nest start --watch`.
 FROM node:22-alpine
 
-RUN apk add --no-cache openssl poppler-utils
+RUN apk add --no-cache openssl poppler-utils ffmpeg
 
 WORKDIR /app
 

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 
 function reponseMock() {
-  return { status: jest.fn().mockReturnThis(), send: jest.fn() };
+  return { status: jest.fn().mockReturnThis(), send: jest.fn(), download: jest.fn() };
 }
 
 describe('PortfolioLiensService', () => {
@@ -12,7 +12,7 @@ describe('PortfolioLiensService', () => {
     lienPortfolio: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     projet: { findMany: jest.Mock; findUnique: jest.Mock };
   };
-  let storage: { streamerAvecRange: jest.Mock };
+  let storage: { streamerAvecRange: jest.Mock; miniatureExiste: jest.Mock; cheminMiniature: jest.Mock };
   let service: PortfolioLiensService;
 
   beforeEach(() => {
@@ -25,7 +25,11 @@ describe('PortfolioLiensService', () => {
       },
       projet: { findMany: jest.fn(), findUnique: jest.fn() },
     };
-    storage = { streamerAvecRange: jest.fn().mockResolvedValue(undefined) };
+    storage = {
+      streamerAvecRange: jest.fn().mockResolvedValue(undefined),
+      miniatureExiste: jest.fn().mockResolvedValue(false),
+      cheminMiniature: jest.fn().mockReturnValue('/app/uploads/uuid.mp4.png'),
+    };
     service = new PortfolioLiensService(prisma as unknown as PrismaService, storage as unknown as StorageService);
   });
 
@@ -107,5 +111,31 @@ describe('PortfolioLiensService', () => {
     const res = reponseMock();
     await service.streamerVideoPublique('tok1', 2, req, res as never);
     expect(storage.streamerAvecRange).toHaveBeenCalledWith('uuid.mp4', 'video/mp4', req, res);
+  });
+
+  it("miniatureVideoPublique : 404 si le projet n'est pas dans la sélection de ce lien", async () => {
+    prisma.lienPortfolio.findUnique.mockResolvedValue({ id: 1, token: 'tok1', projetIds: [2] });
+    const res = reponseMock();
+    await service.miniatureVideoPublique('tok1', 999, res as never);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.download).not.toHaveBeenCalled();
+  });
+
+  it("miniatureVideoPublique : 404 si la vignette n'a pas (encore) été générée", async () => {
+    prisma.lienPortfolio.findUnique.mockResolvedValue({ id: 1, token: 'tok1', projetIds: [2] });
+    prisma.projet.findUnique.mockResolvedValue({ videoStockageNom: 'uuid.mp4', videoMimeType: 'video/mp4' });
+    storage.miniatureExiste.mockResolvedValue(false);
+    const res = reponseMock();
+    await service.miniatureVideoPublique('tok1', 2, res as never);
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('miniatureVideoPublique : sert la vignette si le projet fait partie de la sélection', async () => {
+    prisma.lienPortfolio.findUnique.mockResolvedValue({ id: 1, token: 'tok1', projetIds: [2] });
+    prisma.projet.findUnique.mockResolvedValue({ videoStockageNom: 'uuid.mp4', videoMimeType: 'video/mp4' });
+    storage.miniatureExiste.mockResolvedValue(true);
+    const res = reponseMock();
+    await service.miniatureVideoPublique('tok1', 2, res as never);
+    expect(res.download).toHaveBeenCalledWith('/app/uploads/uuid.mp4.png', 'apercu');
   });
 });

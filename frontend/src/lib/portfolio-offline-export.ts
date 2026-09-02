@@ -1,15 +1,19 @@
 import { Projet } from '@/lib/types';
 import { urlMiniature } from '@/lib/video-embed';
-import { urlVideoHebergeePublique } from '@/lib/video-hebergee';
+import { urlMiniatureVideoHebergeePublique, urlVideoHebergeePublique } from '@/lib/video-hebergee';
 import { TAG_LABEL, formatDateProjet } from '@/lib/projet-format';
 
 /**
  * Génère un fichier HTML autonome (CSS inline, images en data: URI) pour une
- * consultation hors-ligne du portfolio sélectionné. La vidéo elle-même ne peut
- * pas être embarquée hors-ligne (fichier trop volumineux pour du base64, ou
- * streamée depuis YouTube/Vimeo) : on embarque juste une miniature + un lien
- * "voir en ligne", qui ne fonctionnera qu'avec du réseau — vers le lecteur
- * intégré YouTube/Vimeo, ou vers le flux hébergé par Studiflow selon le cas.
+ * consultation hors-ligne du portfolio sélectionné.
+ *
+ * - Lien externe (YouTube/Vimeo) : jamais lisible hors-ligne (plateforme
+ *   tierce) — miniature embarquée + lien "voir en ligne".
+ * - Vidéo hébergée par Studiflow : lecteur <video> intégré directement dans le
+ *   fichier (poster = vraie vignette embarquée en data: URI). Elle ne joue que
+ *   si l'appareil a du réseau ET accès à Studiflow au moment de l'ouverture —
+ *   le fichier reste consultable sans connexion pour tout le reste (textes) —
+ *   mais quand c'est le cas, la lecture est directe, sans changer de page.
  */
 
 async function versDataUri(url: string): Promise<string | null> {
@@ -43,24 +47,37 @@ export async function genererHtmlHorsLigne(
 ): Promise<string> {
   const cartes = await Promise.all(
     projets.map(async (p) => {
-      const miniatureUrl = urlMiniature(p.lienVideo);
+      const estHebergee = Boolean(p.videoStockageNom);
+      const miniatureUrl = estHebergee
+        ? urlMiniatureVideoHebergeePublique(lienToken, p.id)
+        : urlMiniature(p.lienVideo);
       const miniatureData = miniatureUrl ? await versDataUri(miniatureUrl) : null;
-
-      const urlVideo = p.lienVideo ?? (p.videoStockageNom ? urlVideoHebergeePublique(lienToken, p.id) : null);
 
       const tags = [
         p.boiteProduction ? `<span class="badge">${echapperHtml(p.boiteProduction)}</span>` : '',
         ...p.clients.map((c) => `<span class="badge">${echapperHtml(c)}</span>`),
       ].join('');
 
+      const blocMedia = estHebergee
+        ? `<video class="lecteur" controls playsinline preload="none" ${
+            miniatureData ? `poster="${miniatureData}"` : ''
+          }>
+             <source src="${echapperHtml(urlVideoHebergeePublique(lienToken, p.id))}" />
+           </video>`
+        : `<div class="miniature">
+             ${miniatureData ? `<img src="${miniatureData}" alt="" />` : `<div class="miniature-vide">▶</div>`}
+           </div>`;
+
+      const blocApresBadges = estHebergee
+        ? `<p class="note-hors-ligne">Lecture directe si connecté à Internet.</p>`
+        : p.lienVideo
+          ? `<a class="lien-video" href="${echapperHtml(p.lienVideo)}" target="_blank" rel="noopener noreferrer">Voir la vidéo en ligne ↗</a>`
+          : '';
+
       return `
         <article class="carte">
-          <div class="miniature">
-            ${
-              miniatureData
-                ? `<img src="${miniatureData}" alt="" />`
-                : `<div class="miniature-vide">▶</div>`
-            }
+          <div class="media">
+            ${blocMedia}
           </div>
           <div class="contenu">
             <div class="entete">
@@ -70,11 +87,7 @@ export async function genererHtmlHorsLigne(
             <p class="date">${formatDateProjet(p.date)}</p>
             <p class="description">${echapperHtml(p.description)}</p>
             ${tags ? `<div class="badges">${tags}</div>` : ''}
-            ${
-              urlVideo
-                ? `<a class="lien-video" href="${echapperHtml(urlVideo)}" target="_blank" rel="noopener noreferrer">Voir la vidéo en ligne ↗</a>`
-                : ''
-            }
+            ${blocApresBadges}
           </div>
         </article>`;
     }),
@@ -99,18 +112,20 @@ export async function genererHtmlHorsLigne(
   .page { max-width: 880px; margin: 0 auto; }
   h1 { font-size: 28px; margin: 0 0 6px; }
   .sous-titre { color: #9aa0b0; font-size: 14px; margin: 0 0 36px; }
-  .grille { display: grid; gap: 20px; }
+  .grille { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
   .carte {
-    display: flex; gap: 18px; background: #12151c; border: 1px solid #22262f;
-    border-radius: 16px; overflow: hidden; padding: 18px;
+    display: flex; flex-direction: column; background: #12151c; border: 1px solid #22262f;
+    border-radius: 16px; overflow: hidden;
   }
+  .media { aspect-ratio: 16 / 9; background: #1a1e28; }
   .miniature {
-    flex: 0 0 200px; height: 120px; border-radius: 10px; overflow: hidden;
-    background: #1a1e28; display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
   }
   .miniature img { width: 100%; height: 100%; object-fit: cover; }
   .miniature-vide { font-size: 28px; color: #565d70; }
-  .contenu { flex: 1; min-width: 0; }
+  .lecteur { width: 100%; height: 100%; display: block; background: #000; }
+  .note-hors-ligne { margin: 10px 0 0; font-size: 11px; color: #565d70; }
+  .contenu { padding: 18px; min-width: 0; }
   .entete { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .entete h2 { font-size: 17px; margin: 0; }
   .tag { font-size: 11px; padding: 2px 10px; border-radius: 999px; border: 1px solid; }
@@ -118,20 +133,16 @@ export async function genererHtmlHorsLigne(
   .tag-perso { color: #c9a6ff; border-color: #4a3872; background: rgba(163,110,255,0.1); }
   .date { color: #7b8299; font-size: 12px; margin: 6px 0 0; }
   .description { color: #c3c7d4; font-size: 14px; line-height: 1.5; margin: 10px 0; }
-  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
   .badge {
     font-size: 11px; color: #9aa0b0; border: 1px solid #22262f; background: #1a1e28;
     padding: 2px 10px; border-radius: 999px;
   }
-  .lien-video { color: #7db8ff; font-size: 13px; text-decoration: none; }
+  .lien-video { display: block; margin: 10px 0 0; color: #7db8ff; font-size: 13px; text-decoration: none; }
   .lien-video:hover { text-decoration: underline; }
   .avis {
     margin-top: 36px; padding-top: 16px; border-top: 1px solid #22262f;
     color: #565d70; font-size: 12px;
-  }
-  @media (max-width: 560px) {
-    .carte { flex-direction: column; }
-    .miniature { flex-basis: auto; width: 100%; height: 160px; }
   }
 </style>
 </head>
@@ -144,7 +155,8 @@ export async function genererHtmlHorsLigne(
     </div>
     <p class="avis">
       Généré depuis Studiflow. Les informations des projets sont disponibles hors-ligne ;
-      la lecture des vidéos nécessite une connexion (elles sont hébergées sur YouTube/Vimeo).
+      la lecture des vidéos nécessite une connexion (YouTube/Vimeo, ou Studiflow pour les
+      vidéos hébergées).
     </p>
   </div>
 </body>
