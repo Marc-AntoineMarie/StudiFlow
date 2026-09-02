@@ -98,6 +98,21 @@ export default function DocumentsPage() {
     }
   }
 
+  async function onPreview(doc: AppDocument) {
+    // Ouvrir la fenêtre AVANT le fetch (synchrone, dans le geste utilisateur) :
+    // sinon les navigateurs bloquent l'ouverture d'onglet une fois l'await passé.
+    const fenetre = window.open('', '_blank');
+    try {
+      const blob = await apiDownloadBlob(`/documents/${doc.id}/download`);
+      const url = URL.createObjectURL(blob);
+      if (fenetre) fenetre.location.href = url;
+      else window.open(url, '_blank');
+    } catch {
+      fenetre?.close();
+      setErreur('Aperçu impossible.');
+    }
+  }
+
   async function onDelete(doc: AppDocument) {
     if (!window.confirm(`Supprimer « ${doc.nomFichier} » ?`)) return;
     try {
@@ -199,7 +214,12 @@ export default function DocumentsPage() {
         {chargement ? (
           <p className="text-fg-muted">Chargement…</p>
         ) : (
-          <DocumentsTable documents={documentsFiltres} onDownload={onDownload} onDelete={onDelete} />
+          <DocumentsTable
+            documents={documentsFiltres}
+            onDownload={onDownload}
+            onDelete={onDelete}
+            onPreview={onPreview}
+          />
         )}
       </div>
     </div>

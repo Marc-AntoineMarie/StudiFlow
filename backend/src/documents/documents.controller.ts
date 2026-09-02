@@ -47,6 +47,17 @@ export class DocumentsController {
     res.download(chemin, nomFichier);
   }
 
+  @Get(':id/thumbnail')
+  async thumbnail(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    const miniature = await this.documentsService.getMiniature(id);
+    if (!miniature) {
+      res.status(404).send();
+      return;
+    }
+    res.setHeader('Content-Type', miniature.mimeType);
+    res.download(miniature.chemin, 'apercu');
+  }
+
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', ParseIntPipe) id: number) {
