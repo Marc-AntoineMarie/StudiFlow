@@ -113,6 +113,15 @@ export default function DocumentsPage() {
     }
   }
 
+  async function onLierMission(doc: AppDocument, missionId: number | null) {
+    try {
+      await apiFetch(`/documents/${doc.id}`, { method: 'PATCH', body: JSON.stringify({ missionId }) });
+      await charger();
+    } catch {
+      setErreur('Impossible de changer la mission liée.');
+    }
+  }
+
   async function onDelete(doc: AppDocument) {
     if (!window.confirm(`Supprimer « ${doc.nomFichier} » ?`)) return;
     try {
@@ -216,9 +225,11 @@ export default function DocumentsPage() {
         ) : (
           <DocumentsTable
             documents={documentsFiltres}
+            missions={missions}
             onDownload={onDownload}
             onDelete={onDelete}
             onPreview={onPreview}
+            onLierMission={onLierMission}
           />
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Calendar,
   CalendarDays,
@@ -33,6 +34,16 @@ function debutMoisCourant() {
 }
 
 export default function MissionsPage() {
+  return (
+    <Suspense fallback={<p className="text-fg-muted">Chargement…</p>}>
+      <MissionsPageInterieur />
+    </Suspense>
+  );
+}
+
+function MissionsPageInterieur() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [vue, setVue] = useState<'mois' | 'liste' | 'timeline'>('mois');
   const [monthCursor, setMonthCursor] = useState<Date>(debutMoisCourant);
   const [typesActifs, setTypesActifs] = useState<Set<TypeMission>>(new Set());
@@ -54,6 +65,18 @@ export default function MissionsPage() {
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Lien profond (ex. depuis un document ou un rappel) : /missions?id=123 ouvre
+  // directement l'édition de cette mission, puis nettoie l'URL.
+  useEffect(() => {
+    if (chargement) return;
+    const id = searchParams.get('id');
+    if (!id) return;
+    const cible = missions.find((m) => m.id === Number(id));
+    if (cible) ouvrirEdition(cible);
+    router.replace('/missions');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chargement, missions, searchParams]);
 
   const missionsFiltrees = useMemo(() => {
     return missions.filter((m) => {

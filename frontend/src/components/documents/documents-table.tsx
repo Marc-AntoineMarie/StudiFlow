@@ -1,26 +1,40 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, FileText, Trash2 } from 'lucide-react';
-import { AppDocument } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { Download, FileText, Link2, Trash2 } from 'lucide-react';
+import { AppDocument, Mission } from '@/lib/types';
 import { CATEGORIE_LABEL, formatDate, formatTaille } from '@/lib/document-format';
 import { apiDownloadBlob } from '@/lib/api';
+import { Select } from '@/components/ui/select';
 
 interface DocumentsTableProps {
   documents: AppDocument[];
+  missions: Mission[];
   onDownload: (doc: AppDocument) => void;
   onDelete: (doc: AppDocument) => void;
   /** Clic sur la ligne : ouvre le fichier pour consultation (pas un téléchargement forcé). */
   onPreview: (doc: AppDocument) => void;
+  /** missionId: null = détache (retour au dépôt global). */
+  onLierMission: (doc: AppDocument, missionId: number | null) => Promise<void>;
 }
 
 const MIME_AVEC_VIGNETTE = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
 
-export function DocumentsTable({ documents, onDownload, onDelete, onPreview }: DocumentsTableProps) {
+export function DocumentsTable({
+  documents,
+  missions,
+  onDownload,
+  onDelete,
+  onPreview,
+  onLierMission,
+}: DocumentsTableProps) {
+  const router = useRouter();
   const [survole, setSurvole] = useState<AppDocument | null>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [urlVignette, setUrlVignette] = useState<string | null>(null);
   const [chargementVignette, setChargementVignette] = useState(false);
+  const [editionMissionId, setEditionMissionId] = useState<number | null>(null);
   const cache = useRef<Map<number, string | null>>(new Map());
 
   // Les URL d'objet créées pour les vignettes ne servent qu'à cette page : on les
@@ -86,7 +100,54 @@ export function DocumentsTable({ documents, onDownload, onDelete, onPreview }: D
             >
               <td className="px-4 py-3 text-fg">{doc.nomFichier}</td>
               <td className="px-4 py-3 text-fg-muted">{CATEGORIE_LABEL[doc.categorie]}</td>
-              <td className="px-4 py-3 text-fg-muted">{doc.mission?.titre ?? 'Dépôt global'}</td>
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                {editionMissionId === doc.id ? (
+                  <Select
+                    autoFocus
+                    value={doc.missionId ?? ''}
+                    onChange={async (e) => {
+                      const valeur = e.target.value;
+                      setEditionMissionId(null);
+                      await onLierMission(doc, valeur ? Number(valeur) : null);
+                    }}
+                    onBlur={() => setEditionMissionId(null)}
+                  >
+                    <option value="">Dépôt global</option>
+                    {missions.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.titre}
+                      </option>
+                    ))}
+                  </Select>
+                ) : doc.mission ? (
+                  <span className="flex items-center gap-1.5 text-fg-muted">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/missions?id=${doc.mission!.id}`)}
+                      className="truncate hover:text-accent-blue-light hover:underline"
+                    >
+                      {doc.mission.titre}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditionMissionId(doc.id)}
+                      title="Changer de mission"
+                      className="shrink-0 text-fg-dim hover:text-fg"
+                    >
+                      <Link2 size={13} />
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditionMissionId(doc.id)}
+                    className="flex items-center gap-1.5 text-fg-dim hover:text-fg hover:underline"
+                  >
+                    Dépôt global
+                    <Link2 size={13} />
+                  </button>
+                )}
+              </td>
               <td className="px-4 py-3 text-fg-muted">{formatDate(doc.createdAt)}</td>
               <td className="px-4 py-3 text-fg-muted">{formatTaille(doc.tailleOctets)}</td>
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>

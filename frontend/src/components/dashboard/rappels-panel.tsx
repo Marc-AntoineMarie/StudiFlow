@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, CalendarClock, FileWarning, Gauge, LucideIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Rappel, TypeRappel } from '@/lib/types';
@@ -21,6 +22,8 @@ function formatDate(iso: string) {
 }
 
 export function RappelsPanel({ rappels }: { rappels: Rappel[] }) {
+  const router = useRouter();
+
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
@@ -34,8 +37,22 @@ export function RappelsPanel({ rappels }: { rappels: Rappel[] }) {
         <ul className="space-y-3">
           {rappels.map((r, i) => {
             const Icone = ICONE[r.type];
+            const cliquable = r.missionId !== null;
             return (
-              <li key={i} className="flex items-start gap-3">
+              <li
+                key={i}
+                onClick={cliquable ? () => router.push(`/missions?id=${r.missionId}`) : undefined}
+                className={`-mx-2 flex items-start gap-3 rounded-lg px-2 py-1 ${
+                  cliquable ? 'cursor-pointer transition-colors hover:bg-[var(--surface-1)]' : ''
+                }`}
+                title={
+                  r.type === 'DOCUMENT_MANQUANT'
+                    ? 'Ouvrir la mission pour y attacher un document'
+                    : cliquable
+                      ? 'Ouvrir la mission'
+                      : undefined
+                }
+              >
                 <span
                   className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${COULEUR[r.type]}`}
                 >

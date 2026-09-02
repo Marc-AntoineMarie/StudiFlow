@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FileText, Paperclip, Unlink } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,9 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
 import { apiDownloadBlob, apiFetch, ApiError } from '@/lib/api';
-import { Mission, StatutMission, TypeMission } from '@/lib/types';
+import { AppDocument, Mission, StatutMission, TypeMission } from '@/lib/types';
 import { STATUT_LABEL } from '@/lib/mission-format';
+import { CATEGORIE_LABEL } from '@/lib/document-format';
 
 interface MissionDialogProps {
   open: boolean;
@@ -75,6 +76,22 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
+  // Documents attachés à cette mission (édition uniquement).
+  const [documentsAttaches, setDocumentsAttaches] = useState<AppDocument[]>([]);
+  const [documentsNonLies, setDocumentsNonLies] = useState<AppDocument[]>([]);
+  const [documentAAttacher, setDocumentAAttacher] = useState('');
+  const [enCoursDocument, setEnCoursDocument] = useState(false);
+
+  const chargerDocuments = useCallback(async () => {
+    if (!mission) return;
+    const [attaches, nonLies] = await Promise.all([
+      apiFetch<AppDocument[]>(`/documents?missionId=${mission.id}`),
+      apiFetch<AppDocument[]>('/documents?missionId=none'),
+    ]);
+    setDocumentsAttaches(attaches);
+    setDocumentsNonLies(nonLies);
+  }, [mission]);
+
   useEffect(() => {
     if (!open) return;
     if (mission) {
@@ -103,7 +120,59 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
       setNbJours('');
     }
     setErreur(null);
+    setDocumentsAttaches([]);
+    setDocumentsNonLies([]);
+    setDocumentAAttacher('');
   }, [open, mission, defaultDate]);
+
+  useEffect(() => {
+    if (open && mission) chargerDocuments();
+  }, [open, mission, chargerDocuments]);
+
+  async function attacherDocument() {
+    if (!mission || !documentAAttacher) return;
+    setEnCoursDocument(true);
+    try {
+      await apiFetch(`/documents/${documentAAttacher}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ missionId: mission.id }),
+      });
+      setDocumentAAttacher('');
+      await chargerDocuments();
+    } catch {
+      setErreur("Impossible d'attacher ce document.");
+    } finally {
+      setEnCoursDocument(false);
+    }
+  }
+
+  async function detacherDocument(doc: AppDocument) {
+    setEnCoursDocument(true);
+    try {
+      await apiFetch(`/documents/${doc.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ missionId: null }),
+      });
+      await chargerDocuments();
+    } catch {
+      setErreur('Impossible de détacher ce document.');
+    } finally {
+      setEnCoursDocument(false);
+    }
+  }
+
+  async function previsualiserDocument(doc: AppDocument) {
+    const fenetre = window.open('', '_blank');
+    try {
+      const blob = await apiDownloadBlob(`/documents/${doc.id}/download`);
+      const url = URL.createObjectURL(blob);
+      if (fenetre) fenetre.location.href = url;
+      else window.open(url, '_blank');
+    } catch {
+      fenetre?.close();
+      setErreur('Aperçu impossible.');
+    }
+  }
 
   const dateFinFuture = dateFin !== '' && estDansLeFutur(dateFin);
 
@@ -297,6 +366,62 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
           <label className="mb-1.5 block text-xs font-medium text-fg-muted">Note (facultatif)</label>
           <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+
+        {modeEdition && (
+          <div className="rounded-lg border border-subtle p-3">
+            <p className="mb-2 text-xs font-medium text-fg-muted">Documents attachés</p>
+            {documentsAttaches.length === 0 ? (
+              <p className="text-xs text-fg-dim">Aucun document attaché pour l&apos;instant.</p>
+            ) : (
+              <ul className="mb-3 space-y-1.5">
+                {documentsAttaches.map((doc) => (
+                  <li key={doc.id} className="flex items-center justify-between gap-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => previsualiserDocument(doc)}
+                      className="truncate text-left text-fg hover:text-accent-blue-light hover:underline"
+                      title={doc.nomFichier}
+                    >
+                      {doc.nomFichier}
+                      <span className="ml-1.5 text-xs text-fg-dim">{CATEGORIE_LABEL[doc.categorie]}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => detacherDocument(doc)}
+                      disabled={enCoursDocument}
+                      title="Détacher de cette mission"
+                      className="shrink-0 rounded-lg p-1.5 text-fg-dim transition-colors hover:bg-accent-pink/15 hover:text-accent-pink"
+                    >
+                      <Unlink size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {documentsNonLies.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Select value={documentAAttacher} onChange={(e) => setDocumentAAttacher(e.target.value)}>
+                  <option value="">Attacher un document du dépôt global…</option>
+                  {documentsNonLies.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.nomFichier}
+                    </option>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  onClick={attacherDocument}
+                  disabled={!documentAAttacher || enCoursDocument}
+                  title="Attacher"
+                  className="shrink-0 rounded-lg bg-accent-blue/15 p-2 text-accent-blue-light transition-colors hover:bg-accent-blue/25 disabled:opacity-50"
+                >
+                  <Paperclip size={15} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {erreur && (
           <p className="rounded-lg border border-accent-pink/30 bg-accent-pink/10 px-3 py-2 text-sm text-accent-pink">

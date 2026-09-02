@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 const MIME_AUTORISES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
 const MIME_IMAGES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -103,6 +104,22 @@ export class DocumentsService {
     }
 
     return null;
+  }
+
+  /** Rattache/détache un document existant à une mission (missionId: null = détache). */
+  async update(id: number, dto: UpdateDocumentDto) {
+    await this.findOne(id); // 404 si absent
+
+    if (dto.missionId != null) {
+      const mission = await this.prisma.mission.findUnique({ where: { id: dto.missionId } });
+      if (!mission) throw new NotFoundException(`Mission ${dto.missionId} introuvable`);
+    }
+
+    return this.prisma.document.update({
+      where: { id },
+      data: { missionId: dto.missionId === undefined ? undefined : dto.missionId },
+      include: { mission: { select: { id: true, titre: true } } },
+    });
   }
 
   async remove(id: number): Promise<void> {

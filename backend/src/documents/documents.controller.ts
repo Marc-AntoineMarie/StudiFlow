@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   Res,
@@ -18,6 +19,7 @@ import type { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 const TAILLE_MAX_OCTETS = 10 * 1024 * 1024; // 10 Mo
 
@@ -56,6 +58,11 @@ export class DocumentsController {
     }
     res.setHeader('Content-Type', miniature.mimeType);
     res.download(miniature.chemin, 'apercu');
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDocumentDto) {
+    return this.documentsService.update(id, dto);
   }
 
   @Delete(':id')

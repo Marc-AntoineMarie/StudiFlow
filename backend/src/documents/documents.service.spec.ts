@@ -18,7 +18,13 @@ function fichier(overrides: Partial<Express.Multer.File> = {}): Express.Multer.F
 describe('DocumentsService', () => {
   let prisma: {
     mission: { findUnique: jest.Mock };
-    document: { create: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
+    document: {
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
   };
   let storage: {
     enregistrer: jest.Mock;
@@ -37,6 +43,7 @@ describe('DocumentsService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        update: jest.fn(),
         delete: jest.fn(),
       },
     };
@@ -143,6 +150,45 @@ describe('DocumentsService', () => {
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { missionId: 5 } }),
     );
+  });
+
+  it('update : rattache un document existant à une mission', async () => {
+    prisma.document.findUnique.mockResolvedValue({ id: 1, stockageNom: 'uuid.pdf' });
+    prisma.mission.findUnique.mockResolvedValue({ id: 3 });
+    prisma.document.update.mockResolvedValue({ id: 1, missionId: 3 });
+
+    await service.update(1, { missionId: 3 });
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { missionId: 3 },
+      include: { mission: { select: { id: true, titre: true } } },
+    });
+  });
+
+  it('update : détache un document (missionId: null) sans vérifier de mission', async () => {
+    prisma.document.findUnique.mockResolvedValue({ id: 1, stockageNom: 'uuid.pdf' });
+    prisma.document.update.mockResolvedValue({ id: 1, missionId: null });
+
+    await service.update(1, { missionId: null });
+
+    expect(prisma.mission.findUnique).not.toHaveBeenCalled();
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { missionId: null },
+      include: { mission: { select: { id: true, titre: true } } },
+    });
+  });
+
+  it('update : rejette si la mission ciblée n’existe pas', async () => {
+    prisma.document.findUnique.mockResolvedValue({ id: 1, stockageNom: 'uuid.pdf' });
+    prisma.mission.findUnique.mockResolvedValue(null);
+    await expect(service.update(1, { missionId: 99 })).rejects.toThrow(NotFoundException);
+  });
+
+  it('update : id de document inexistant → 404', async () => {
+    prisma.document.findUnique.mockResolvedValue(null);
+    await expect(service.update(1, { missionId: 3 })).rejects.toThrow(NotFoundException);
   });
 
   it('remove : supprime le fichier puis la ligne en base', async () => {
