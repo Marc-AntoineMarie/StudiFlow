@@ -110,16 +110,45 @@ Voir `docs/04-regle-12-mois-glissants.md`. Implémentation testée :
   suppression du volume existant pour repartir d'un état propre. Règle générale
   ajoutée à `AGENTS.md` §6.
 
-## 7. Procédure de déploiement (à détailler à l'étape déploiement)
+## 7. Procédure de déploiement — **fait**
 
-- Cible : VPS personnel, nginx + certbot déjà en place.
-- `docker-compose.prod.yml` : `db` (Postgres + volume, pas de port exposé) + `backend`
-  + `frontend`.
-- Script `scripts/deploy.sh` : SSH → `git pull` → `docker compose -f
-  docker-compose.prod.yml up -d --build` → `npx prisma migrate deploy`.
-- Sous-domaine : choisi au moment du déploiement (domaine du propriétaire ou `desec.io`
-  pour les tests).
-- GitHub Actions : `lint` + `test` uniquement, pas de déploiement automatique au début.
+- Cible : VPS personnel du propriétaire (nginx + certbot déjà en place, hors du
+  contrôle de l'assistant IA — accès SSH et configuration nginx restent entièrement
+  du côté du propriétaire, voir note ci-dessous).
+- Sous-domaine : `studiflow.marc-antoinemarie.com`.
+- `docker-compose.prod.yml` (racine du dépôt) : `db` (Postgres 16, volume nommé, port
+  interne uniquement) + `backend` + `frontend`, build via `Dockerfile.prod` propres à
+  chaque service (image compilée, pas de bind-mount ni de hot-reload, contrairement
+  aux `Dockerfile`/`Dockerfile.dev` de dev). `backend` et `frontend` publient leurs
+  ports uniquement sur `127.0.0.1` — seul nginx (sur l'hôte) doit être joignable
+  depuis Internet.
+- `backend/Dockerfile.prod` : build multi-étage, `node dist/src/main.js` au démarrage
+  (le build Nest sort dans `dist/src/`, pas `dist/`, à cause de `sourceRoot: "src"`
+  dans `nest-cli.json` — piège identifié en testant l'image, corrigé aussi dans
+  `start:prod` du `package.json`). Réutilise `docker-entrypoint.sh` (migrations +
+  seed) tel quel.
+- `frontend/Dockerfile.prod` : build Next.js `output: 'standalone'`, servi par
+  `node server.js`. Point d'attention : `NEXT_PUBLIC_API_URL` est lu côté client et
+  donc figé **au build** (`--build-arg`, pas seulement une variable d'environnement
+  du conteneur au runtime).
+- `deploy/nginx-studiflow.conf` : bloc nginx (HTTP, certbot ajoute ensuite le TLS)
+  proxyfiant `/api/` vers le backend et `/` vers le frontend, avec
+  `client_max_body_size 12m` (défaut nginx = 1 Mo, insuffisant pour les documents
+  jusqu'à 10 Mo). Fourni comme fichier à copier par le propriétaire — non appliqué
+  par l'assistant.
+- `.env.prod.example` : gabarit des variables de prod (secrets à générer sur le
+  serveur, jamais réutiliser ceux de dev).
+- `scripts/deploy.sh` : à lancer sur le VPS (`git pull` → `up -d --build` →
+  `prisma migrate deploy`), pour les mises à jour après le premier déploiement.
+- **Validé en local** avant remise au propriétaire : les deux `Dockerfile.prod`
+  buildent proprement, et un stack complet (db + backend + frontend, ports
+  alternatifs, identifiants jetables) a démarré, migré, seedé et répondu correctement
+  (`/api/health`, login, page `/login`) — voir `docs/journal-de-bord.md`.
+- **Contrainte explicite du propriétaire** : l'assistant IA prépare les fichiers de
+  déploiement et peut vérifier une configuration existante, mais n'a ni accès SSH au
+  VPS ni le droit de modifier la configuration nginx en place — c'est le propriétaire
+  qui exécute les commandes sur le serveur.
+- GitHub Actions : `lint` + `test` uniquement, pas de déploiement automatique.
 
 ## 8. Ports (convention reprise de Synapse-CRM)
 

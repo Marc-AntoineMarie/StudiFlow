@@ -6,6 +6,60 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-02 — Renommage Studiflow + préparation du déploiement VPS
+
+Le propriétaire a fourni l'adresse de déploiement : IP `148.113.207.25`, port SSH
+`4025`, sous-domaine `studiflow.marc-antoinemarie.com`, avec deux contraintes
+explicites : pas d'accès SSH complet donné à l'assistant IA (« le reste c'est moi qui
+met »), et l'assistant ne touche **pas** à la config nginx en place lui-même (« tu
+peux la vérifier et m'aider... mais certainement pas toucher à ma config nginx
+toi-même »). Le sous-domaine reprenait le nom « StudioFlow » de la maquette de login
+précédente — décision demandée et tranchée : le nom du produit est figé en
+**Studiflow** (sans le second « o », cohérence avec le sous-domaine). Le nom de
+travail « Cadré » reste seulement le nom du dépôt git et des identifiants internes
+(base de données, `.env` de dev) pour ne pas casser l'historique.
+
+**Renommage (UI + dossier) :**
+
+- Titre d'onglet, nav, placeholder login, description `package.json`, log de
+  démarrage backend : `Cadré` → `Studiflow`.
+- `README.md`, `AGENTS.md`, `docs/01-note-de-cadrage.md`,
+  `docs/06-direction-artistique.md` : nom affiché mis à jour, décision de figeage
+  datée et tracée.
+
+**Déploiement — fichiers préparés (respectant les deux contraintes ci-dessus, donc
+rien exécuté sur le VPS lui-même) :**
+
+- `backend/Dockerfile.prod`, `frontend/Dockerfile.prod` : images de production
+  (build compilé, pas de bind-mount). Bug trouvé et corrigé en testant l'image
+  backend : `nest build` sort dans `dist/src/main.js` (pas `dist/main.js`, à cause
+  de `sourceRoot: "src"` dans `nest-cli.json`) — `CMD` du Dockerfile et
+  `start:prod` du `package.json` corrigés.
+- `docker-compose.prod.yml` : `db` + `backend` + `frontend`, ports backend/frontend
+  publiés uniquement sur `127.0.0.1` (nginx = seul point d'entrée public).
+- `deploy/nginx-studiflow.conf` : bloc nginx HTTP prêt à copier par le propriétaire
+  (`/api/` → backend, `/` → frontend, `client_max_body_size 12m` pour les documents
+  jusqu'à 10 Mo — le défaut nginx de 1 Mo les aurait bloqués avant même d'atteindre
+  le backend). Fichier livré en commentaire de commandes à exécuter **par le
+  propriétaire** ; l'assistant ne l'a pas appliqué.
+- `.env.prod.example`, `scripts/deploy.sh` : gabarit de secrets de prod (à générer
+  sur le serveur, jamais réutiliser ceux de dev) et script de mise à jour
+  (`git pull` → rebuild → `prisma migrate deploy`), à lancer par le propriétaire.
+- `frontend/.dockerignore`, `frontend/public/.gitkeep` (le projet n'avait pas de
+  dossier `public/`, requis par le build `standalone` de Next.js).
+
+**Validation locale avant remise au propriétaire** (l'assistant n'a pas accès au
+VPS — seule vérification possible) : les deux `Dockerfile.prod` buildent proprement ;
+un stack complet lancé avec des ports et identifiants jetables (`db` + `backend` +
+`frontend`) a migré, seedé le compte de démo et répondu correctement sur
+`/api/health`, `/api/auth/login` et `/login` (200). Stack de test entièrement
+démonté après vérification (conteneurs, images, fichiers `.env`/`compose` jetables
+supprimés) ; stack de dev (`cadre-*`, ports 4000/4001/5433) non touché.
+
+Détail complet en `docs/03-specifications-techniques.md` §7.
+
+---
+
 ## 2026-09-01 — Premier commit (historique initial, 28 commits)
 
 Tout le travail de la journée était non versionné jusqu'ici. Le propriétaire a demandé
@@ -77,6 +131,41 @@ graphiques plus lourds du dashboard principal.
 propriétaire, puis construction du vrai dashboard (jauge circulaire, aire CA
 dégradée, donut répartition, cartes secondaires) — bibliothèque de graphes à choisir
 à ce moment-là.
+
+---
+
+## 2026-09-02 — Jeu de données de démo
+
+Livrable du brief : « une vingtaine de missions sur 14 mois, quelques documents,
+quelques projets ». `backend/prisma/seed-demo.ts` (`npm run seed:demo`) :
+
+- **28 missions** curatées à la main (pas générées aléatoirement) sur 14 mois
+  (juillet 2025 → septembre 2026), alternant intermittence (assistance vidéo Top 14,
+  Champions Cup, Tournoi des 6 Nations — cohérent avec le profil du client du brief)
+  et freelance (bandes-annonces, films corporate, publicités). Statuts variés
+  (majorité Terminée, quelques Confirmée récentes/futures, une Proposée). Deux
+  missions volontairement en chevauchement (6 Nations / teaser festival, 8-9 février)
+  pour illustrer la règle « chevauchement autorisé ». Plusieurs missions avec un écart
+  volontaire entre plage calendaire et jours facturés, pour exercer la nouvelle
+  fonctionnalité de la note de cadrage (item 1 du retour utilisateur).
+- **14 documents** : PDF générés à la volée (`pdfkit`) et passés par le pipeline de
+  miniature réel (`pdftoppm`), répartis sur ~10 missions + 2 documents globaux —
+  volontairement pas 100 % de couverture, pour que le panneau Rappels illustre le vrai
+  problème du client (documents introuvables). Équilibré à 14/28 après un premier
+  essai trop chargé (21 rappels sur 28 missions — corrigé pour rester lisible).
+- **6 projets portfolio**, mélange Pro/Perso, `boiteProduction`/`clients` renseignés
+  sur certains, vides sur d'autres (démontre le caractère optionnel).
+
+**Résultat sur le dashboard réel** : 170 h cumulées / 507 h (34 %), 8 230 € de CA sur
+12 mois glissants, répartition 57 % intermittence / 43 % freelance, 12 rappels actifs.
+Vérifié en Playwright sur toutes les pages (mois/liste/timeline, dashboard, documents,
+portfolio) : **0 erreur console**. Un premier contrôle des vignettes YouTube semblait
+montrer des miniatures cassées — fausse alerte, c'était juste un temps d'attente trop
+court avant la capture d'écran (confirmé : `img.complete === true`,
+`naturalWidth: 480` sur les 5 miniatures une fois le réseau vraiment stabilisé).
+
+Le seed **remplace** missions/documents/projets existants à chaque exécution (jamais
+User ni Config) : rejouable sans risque pour repartir d'un état propre.
 
 ---
 
