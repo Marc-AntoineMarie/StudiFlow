@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, PenLine, Play } from 'lucide-react';
+import { Building2, ChevronDown, PenLine, Play, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Projet } from '@/lib/types';
@@ -45,6 +45,26 @@ export function ProjetCard({ projet, onEdit }: ProjetCardProps) {
           </div>
           <p className="mt-0.5 text-xs text-fg-dim">{formatDateProjet(projet.date)}</p>
           <p className="mt-2 text-sm text-fg-muted">{projet.description}</p>
+
+          {(projet.boiteProduction || projet.clients.length > 0) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {projet.boiteProduction && (
+                <span className="flex items-center gap-1 rounded-full border border-subtle bg-[var(--surface-1)] px-2.5 py-0.5 text-[11px] text-fg-muted">
+                  <Building2 size={11} />
+                  {projet.boiteProduction}
+                </span>
+              )}
+              {projet.clients.map((client) => (
+                <span
+                  key={client}
+                  className="flex items-center gap-1 rounded-full border border-subtle bg-[var(--surface-1)] px-2.5 py-0.5 text-[11px] text-fg-muted"
+                >
+                  <User size={11} />
+                  {client}
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="mt-4 flex items-center gap-2">
             <Button variant="ghost" onClick={() => onEdit(projet)}>

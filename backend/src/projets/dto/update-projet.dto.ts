@@ -1,5 +1,5 @@
 import { TagProjet } from '@prisma/client';
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class UpdateProjetDto {
   @IsString()
@@ -23,4 +23,15 @@ export class UpdateProjetDto {
   @IsUrl()
   @IsOptional()
   lienVideo?: string;
+
+  @IsString()
+  @MaxLength(200)
+  @IsOptional()
+  boiteProduction?: string;
+
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @IsOptional()
+  clients?: string[];
 }

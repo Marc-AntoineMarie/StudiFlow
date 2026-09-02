@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
+import { TagInput } from '@/components/ui/tag-input';
 import { apiFetch, ApiError } from '@/lib/api';
 import { Projet, TagProjet } from '@/lib/types';
 
@@ -28,6 +29,8 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
   const [tag, setTag] = useState<TagProjet>('PRO');
   const [date, setDate] = useState('');
   const [lienVideo, setLienVideo] = useState('');
+  const [boiteProduction, setBoiteProduction] = useState('');
+  const [clients, setClients] = useState<string[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -39,12 +42,16 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
       setTag(projet.tag);
       setDate(toDateInput(projet.date));
       setLienVideo(projet.lienVideo);
+      setBoiteProduction(projet.boiteProduction ?? '');
+      setClients(projet.clients ?? []);
     } else {
       setTitre('');
       setDescription('');
       setTag('PRO');
       setDate('');
       setLienVideo('');
+      setBoiteProduction('');
+      setClients([]);
     }
     setErreur(null);
   }, [open, projet]);
@@ -54,7 +61,17 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
     setErreur(null);
     setEnCours(true);
     try {
-      const payload = { titre, description, tag, date, lienVideo };
+      const payload = {
+        titre,
+        description,
+        tag,
+        date,
+        lienVideo,
+        // Chaîne vide envoyée explicitement (pas `undefined`) : permet d'effacer
+        // une valeur existante en édition, pas seulement d'en ajouter une.
+        boiteProduction: boiteProduction.trim(),
+        clients,
+      };
       if (modeEdition && projet) {
         await apiFetch(`/projets/${projet.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
       } else {
@@ -124,6 +141,24 @@ export function ProjetDialog({ open, onClose, onSaved, projet }: ProjetDialogPro
             onChange={(e) => setLienVideo(e.target.value)}
             placeholder="https://youtu.be/..."
           />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+            Boîte de production <span className="font-normal text-fg-dim">(facultatif)</span>
+          </label>
+          <Input
+            value={boiteProduction}
+            onChange={(e) => setBoiteProduction(e.target.value)}
+            placeholder="Studio Rivage"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+            Client(s) <span className="font-normal text-fg-dim">(facultatif)</span>
+          </label>
+          <TagInput value={clients} onChange={setClients} placeholder="Nom du client, puis Entrée" />
         </div>
 
         {erreur && (

@@ -58,6 +58,8 @@ export interface Projet {
   tag: TagProjet;
   date: string;
   lienVideo: string;
+  boiteProduction: string | null;
+  clients: string[];
   createdAt: string;
   updatedAt: string;
 }

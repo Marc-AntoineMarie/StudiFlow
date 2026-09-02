@@ -1,5 +1,5 @@
 import { TagProjet } from '@prisma/client';
-import { IsDateString, IsEnum, IsNotEmpty, IsString, IsUrl } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateProjetDto {
   @IsString()
@@ -18,4 +18,17 @@ export class CreateProjetDto {
 
   @IsUrl()
   lienVideo!: string; // domaine YouTube/Vimeo vérifié dans le service
+
+  /** Optionnel : le monteur n'a pas toujours de boîte de prod à citer. */
+  @IsString()
+  @MaxLength(200)
+  @IsOptional()
+  boiteProduction?: string;
+
+  /** Optionnel : ajoutés un par un côté frontend, stockés comme une simple liste. */
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @IsOptional()
+  clients?: string[];
 }

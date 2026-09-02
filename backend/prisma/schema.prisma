@@ -96,6 +96,11 @@ model Projet {
   tag         TagProjet
   date        DateTime  @db.Date
   lienVideo   String
+
+  /// Optionnels : le monteur n'a pas toujours de boîte de prod ou de client à citer.
+  boiteProduction String?
+  clients         String[] @default([])
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
