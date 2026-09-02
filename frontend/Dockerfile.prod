@@ -1,0 +1,31 @@
+# Image de production — build Next.js "standalone" (cf. next.config.ts), servie
+# par `node server.js` directement, sans `next start` ni bind-mount.
+#
+# Important : NEXT_PUBLIC_API_URL est lu par le code CLIENT et donc figé DANS le
+# bundle au moment de `next build` (pas au runtime comme côté backend). Il doit
+# être passé en --build-arg, pas seulement en variable d'environnement du conteneur.
+
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+RUN npm run build
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=4000
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+
+RUN chown -R node:node /app
+USER node
+
+EXPOSE 4000
+CMD ["node", "server.js"]
