@@ -1,4 +1,5 @@
 import { getToken } from './auth';
+import { demarrerChargement, terminerChargement } from './loading-store';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001/api';
 
@@ -20,21 +21,26 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!estFormData) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  demarrerChargement();
+  try {
+    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
-  if (!res.ok) {
-    let message = 'Une erreur est survenue.';
-    try {
-      const body = await res.json();
-      message = Array.isArray(body?.message) ? body.message.join(', ') : (body?.message ?? message);
-    } catch {
-      // corps non JSON, on garde le message générique
+    if (!res.ok) {
+      let message = 'Une erreur est survenue.';
+      try {
+        const body = await res.json();
+        message = Array.isArray(body?.message) ? body.message.join(', ') : (body?.message ?? message);
+      } catch {
+        // corps non JSON, on garde le message générique
+      }
+      throw new ApiError(res.status, message);
     }
-    throw new ApiError(res.status, message);
-  }
 
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
+  } finally {
+    terminerChargement();
+  }
 }
 
 /** Téléchargement de fichier authentifié : renvoie un Blob (pas de JSON attendu). */
@@ -43,7 +49,12 @@ export async function apiDownloadBlob(path: string): Promise<Blob> {
   const headers = new Headers();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${API_URL}${path}`, { headers });
-  if (!res.ok) throw new ApiError(res.status, 'Téléchargement impossible.');
-  return res.blob();
+  demarrerChargement();
+  try {
+    const res = await fetch(`${API_URL}${path}`, { headers });
+    if (!res.ok) throw new ApiError(res.status, 'Téléchargement impossible.');
+    return await res.blob();
+  } finally {
+    terminerChargement();
+  }
 }

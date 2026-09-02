@@ -26,6 +26,12 @@
 |---|---|---|
 | Bascule vers un stockage S3-compatible | Portabilité, pas de dépendance au disque du serveur | S — `StorageService` déjà abstrait pour ça |
 
+## Portfolio
+
+| Évolution | Apport client | Effort |
+|---|---|---|
+| Upload + hébergement de vidéo (au lieu de liens YouTube/Vimeo uniquement) | Résout la limite structurelle des liens de partage hors-ligne (2026-09-02) : la vidéo elle-même ne peut jamais se lire sans connexion tant qu'elle streame depuis une plateforme tierce. Un stockage/lecture vidéo interne permettrait un portfolio réellement autonome. Idée du propriétaire, cohérente avec le brief. | L — stockage de fichiers volumineux, transcodage/format de lecture, lecteur HTML5, coût de stockage à anticiper |
+
 ## Module différenciant — alternatives du brief
 
 Le groupe a choisi l'export `.ics`/`.csv` comme module différenciant officiel

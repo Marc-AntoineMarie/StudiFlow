@@ -104,3 +104,17 @@ model Projet {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
+
+/// Lien de partage public d'une sélection de projets du portfolio (module
+/// différenciant : consultation sans compte, y compris hors-ligne via le
+/// fichier HTML exporté depuis la page publique). Résolu à la volée sur
+/// `projetIds` — un projet supprimé disparaît simplement de la sélection,
+/// pas de FK stricte nécessaire sur un tableau scalaire.
+model LienPortfolio {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @default(cuid())
+  titre     String?
+  projetIds Int[]
+
+  createdAt DateTime @default(now())
+}

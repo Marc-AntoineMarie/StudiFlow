@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, ChevronDown, PenLine, Play, User } from 'lucide-react';
+import { Building2, Check, ChevronDown, PenLine, Play, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Projet } from '@/lib/types';
@@ -11,15 +11,41 @@ import { urlEmbed, urlMiniature } from '@/lib/video-embed';
 interface ProjetCardProps {
   projet: Projet;
   onEdit: (projet: Projet) => void;
+  /** Mode "créer un lien de partage" : la carte devient cochable, l'édition est désactivée. */
+  modeSelection?: boolean;
+  selectionne?: boolean;
+  onToggleSelection?: (projet: Projet) => void;
 }
 
-export function ProjetCard({ projet, onEdit }: ProjetCardProps) {
+export function ProjetCard({
+  projet,
+  onEdit,
+  modeSelection,
+  selectionne,
+  onToggleSelection,
+}: ProjetCardProps) {
   const [apercuOuvert, setApercuOuvert] = useState(false);
   const miniature = urlMiniature(projet.lienVideo);
   const embed = urlEmbed(projet.lienVideo);
 
   return (
-    <Card className="overflow-hidden p-0">
+    <Card
+      className={`relative overflow-hidden p-0 transition-colors ${
+        modeSelection ? 'cursor-pointer' : ''
+      } ${selectionne ? 'border-accent-blue ring-1 ring-accent-blue' : ''}`}
+      onClick={modeSelection ? () => onToggleSelection?.(projet) : undefined}
+    >
+      {modeSelection && (
+        <span
+          className={`absolute right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+            selectionne
+              ? 'border-accent-blue bg-accent-blue text-white'
+              : 'border-subtle bg-[var(--surface-1)] text-transparent'
+          }`}
+        >
+          <Check size={14} />
+        </span>
+      )}
       <div className="flex flex-col gap-4 p-5 sm:flex-row">
         <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-[var(--surface-1)] sm:w-48">
           {miniature ? (
@@ -66,16 +92,22 @@ export function ProjetCard({ projet, onEdit }: ProjetCardProps) {
             </div>
           )}
 
-          <div className="mt-4 flex items-center gap-2">
-            <Button variant="ghost" onClick={() => onEdit(projet)}>
-              <PenLine size={14} />
-              Modifier
-            </Button>
-            <Button variant="ghost" onClick={() => setApercuOuvert((v) => !v)} disabled={!embed}>
-              <ChevronDown size={14} className={`transition-transform ${apercuOuvert ? 'rotate-180' : ''}`} />
-              Aperçu
-            </Button>
-          </div>
+          {!modeSelection && (
+            <div className="mt-4 flex items-center gap-2">
+              <Button variant="ghost" onClick={() => onEdit(projet)}>
+                <PenLine size={14} />
+                Modifier
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setApercuOuvert((v) => !v)}
+                disabled={!embed}
+              >
+                <ChevronDown size={14} className={`transition-transform ${apercuOuvert ? 'rotate-180' : ''}`} />
+                Aperçu
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

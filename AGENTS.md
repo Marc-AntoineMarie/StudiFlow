@@ -69,8 +69,13 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Guide de reprise formel (dossier, partie d) | ⬜ à faire — `AGENTS.md` en couvre une partie côté IA |
 | Dossier exporté en PDF | ⬜ à faire |
 | Jeu de données démo (28 missions / 14 mois, 14 documents, 6 projets) | ✅ fait — `npm run seed:demo`, rejouable sans risque |
-| Déploiement VPS (démo avec compte de test) | 🟡 fichiers prêts et validés en local (`docker-compose.prod.yml`, `Dockerfile.prod` ×2, `deploy/nginx-studiflow.conf`, `.env.prod.example`, `scripts/deploy.sh`) — reste à exécuter **par le propriétaire** sur le VPS (l'IA n'a ni accès SSH ni le droit de toucher nginx, cf. §3.8) |
+| Déploiement VPS (démo avec compte de test) | ✅ fait — `https://studiflow.marc-antoinemarie.com`, exécuté par le propriétaire (l'IA n'a ni accès SSH ni le droit de toucher nginx, cf. §3.8) |
 | Dossier technique (5 parties) | 🟡 partie a faite, reste à écrire au fil de l'eau |
+| Dashboard : répartition par client (activité/CA/nb missions) | ✅ fait — fonction pure testée, toggle 3 métriques |
+| Documents ↔ missions : liaison bidirectionnelle | ✅ fait — upload direct + aperçu au survol depuis la mission, réassignation depuis les documents, rappels cliquables |
+| Missions : timeline par année (année courante par défaut, navigable) | ✅ fait |
+| Indicateur de chargement global | ✅ fait — barre fine pilotée par un compteur partagé sur `apiFetch`/`apiDownloadBlob` |
+| Portfolio : liens de partage publics + export hors-ligne | ✅ fait — `LienPortfolio` (token, révocable), route publique isolée aux seuls projets sélectionnés, page `/portfolio-public/[token]`, fichier `.html` autonome vérifié en `file://`. Limite actée : la vidéo ne se lit pas hors-ligne (streamée YouTube/Vimeo) — roadmap : upload/lecture vidéo interne |
 
 Journal détaillé des changements : `docs/journal-de-bord.md`.
 

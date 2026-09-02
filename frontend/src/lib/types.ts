@@ -63,3 +63,17 @@ export interface Projet {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface LienPortfolio {
+  id: number;
+  token: string;
+  titre: string | null;
+  projetIds: number[];
+  createdAt: string;
+}
+
+/** Réponse publique (pas d'auth) : uniquement les projets sélectionnés pour ce lien. */
+export interface LienPortfolioPublic {
+  titre: string | null;
+  projets: Projet[];
+}

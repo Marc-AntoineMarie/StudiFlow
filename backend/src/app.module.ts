@@ -13,6 +13,7 @@ import { ProjetsModule } from './projets/projets.module';
 import { ParametresModule } from './parametres/parametres.module';
 import { ExportModule } from './export/export.module';
 import { RappelsModule } from './rappels/rappels.module';
+import { PortfolioLiensModule } from './portfolio-liens/portfolio-liens.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RappelsModule } from './rappels/rappels.module';
     ParametresModule,
     ExportModule,
     RappelsModule,
+    PortfolioLiensModule,
   ],
   controllers: [HealthController],
   providers: [

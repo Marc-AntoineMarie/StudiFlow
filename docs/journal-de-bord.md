@@ -6,6 +6,70 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-02 — Répartition par client, liaison documents/missions, timeline par année, indicateur de chargement, liens portfolio hors-ligne
+
+Gros lot de retours utilisateur, traités étape par étape avec compte-rendu à
+chaque fois (4 commits : `f523b73`, `2d08a0a`, `9b7690f`, et celui de cette
+entrée).
+
+**Dashboard — répartition par client** (`f523b73`) : fonction pure
+`calculerRepartitionClients` (même fenêtre 12 mois glissants que le reste),
+regroupe par `clientOuProduction`, top 5 + « Autres ». Toggle Activité (heures
+équivalentes, cohérent avec la répartition intermittence/freelance existante) /
+CA / Nb missions — demandé explicitement par le propriétaire après la première
+proposition. 8 tests dédiés.
+
+**Documents ↔ missions, liaison bidirectionnelle** (`2d08a0a`, puis étendu) :
+`PATCH /api/documents/:id` pour (dé)rattacher un document existant. Mission
+(édition) : bloc « Documents attachés » avec upload direct (même dropzone que
+l'onglet Documents), aperçu au survol + clic, sélecteur élargi à **tous** les
+documents (pas seulement le dépôt global — permet une réassignation directe
+entre missions). Documents (table) : nom de mission cliquable (lien profond
+`/missions?id=…`) + icône pour changer la mission liée sans quitter la page.
+Rappels du dashboard cliquables → ouvrent la mission concernée ; les rappels
+résolus disparaissent déjà seuls (recalcul en direct, pas de statut à gérer).
+Bug signalé par le propriétaire (« ça ne s'ajoute pas ») non reproduit après
+investigation (deux mécanismes testés en profondeur, fonctionnels) — probable
+onglet resté ouvert avant un rechargement à chaud du serveur de dev.
+
+Survol/vignette factorisé (`use-thumbnail-hover.ts` + `thumbnail-popover.tsx`),
+`DocumentsTable` refactorisée dessus.
+
+**Timeline par année** (`9b7690f`) : une seule année à la fois (année courante
+par défaut), navigation ◀ ▶ identique à la vue Mois.
+
+**Indicateur de chargement global** : toute requête `apiFetch`/`apiDownloadBlob`
+alimente un compteur partagé (`loading-store.ts`) qui pilote une barre fine en
+haut de page (`top-loading-bar.tsx`, style GitHub/YouTube) — un seul mécanisme
+couvre à la fois les transitions de page et les actions plus lentes (export,
+upload, PDF…), sans instrumenter chaque écran individuellement.
+
+**Liens de partage portfolio (module différenciant, hors-ligne)** : nouveau
+modèle `LienPortfolio` (`token` unique, `titre?`, `projetIds[]`, résolu à la
+volée — un projet supprimé disparaît simplement de la sélection). Nouveau
+module `portfolio-liens` : CRUD authentifié + une seule route publique
+`GET /:token/public` (`@Public()`, throttlée), qui ne renvoie **que** les
+projets choisis pour ce lien — jamais de mission/document/CA, par construction
+de la requête (pas seulement par convention). Page publique dédiée
+`/portfolio-public/[token]` (hors du groupe `(app)`, pas de garde JWT, pas de
+nav privée). Bouton « Télécharger pour consultation hors-ligne » : génère côté
+client un fichier `.html` autonome (CSS inline, miniatures YouTube embarquées
+en `data:` URI) — vérifié en l'ouvrant en `file://` pur, sans serveur ni réseau
+simulé. Limite actée avec le propriétaire : la vidéo elle-même ne peut jamais
+se lire hors-ligne (streamée depuis YouTube/Vimeo) ; idée retenue en roadmap
+d'un système d'upload/lecture vidéo interne pour lever cette limite plus tard
+(`docs/05-roadmap.md`).
+
+Portfolio (page) : mode sélection sur les cartes projet (coche visuelle, pas de
+checkbox séparée), panneau « Liens de partage » (copier / ouvrir / supprimer —
+suppression vérifiée : le lien public renvoie bien `404` ensuite).
+
+Vérifié à chaque étape avec Playwright (création, affichage public, téléchargement
+hors-ligne, suppression + révocation, non-régression). 107 tests backend,
+lint + build frontend clean.
+
+---
+
 ## 2026-09-02 — Renommage Studiflow + préparation du déploiement VPS
 
 Le propriétaire a fourni l'adresse de déploiement : IP `148.113.207.25`, port SSH

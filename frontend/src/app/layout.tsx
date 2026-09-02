@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Space_Grotesk, Inter } from 'next/font/google';
 import './globals.css';
 import { SCRIPT_THEME_INLINE } from '@/lib/theme';
+import { TopLoadingBar } from '@/components/ui/top-loading-bar';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             thème sombre par défaut si l'utilisateur avait choisi le clair. */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_THEME_INLINE }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <TopLoadingBar />
+        {children}
+      </body>
     </html>
   );
 }
