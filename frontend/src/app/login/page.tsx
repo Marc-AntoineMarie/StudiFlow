@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clapperboard, Film, LogIn, Mail, Lock, Video } from 'lucide-react';
+import { Clapperboard, Film, LogIn, Mail, Lock, UserPlus, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -10,29 +10,37 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { apiFetch, ApiError } from '@/lib/api';
 import { getToken, saveToken } from '@/lib/auth';
 
-interface LoginResponse {
+interface AuthResponse {
   token: string;
   expiresIn: string;
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const [setupRequise, setSetupRequise] = useState<boolean | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
   // Déjà connecté ? Inutile de revoir le formulaire.
   useEffect(() => {
-    if (getToken()) router.replace('/missions');
+    if (getToken()) {
+      router.replace('/missions');
+      return;
+    }
+    apiFetch<{ requise: boolean }>('/auth/setup-requise')
+      .then((r) => setSetupRequise(r.requise))
+      .catch(() => setSetupRequise(false)); // par prudence, retombe sur la connexion
   }, [router]);
 
-  async function onSubmit(e: FormEvent) {
+  async function onSubmitConnexion(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
     setEnCours(true);
     try {
-      const { token } = await apiFetch<LoginResponse>('/auth/login', {
+      const { token } = await apiFetch<AuthResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
@@ -44,6 +52,30 @@ export default function LoginPage() {
       setEnCours(false);
     }
   }
+
+  async function onSubmitCreation(e: FormEvent) {
+    e.preventDefault();
+    setErreur(null);
+    if (password !== confirmation) {
+      setErreur('Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+    setEnCours(true);
+    try {
+      const { token } = await apiFetch<AuthResponse>('/auth/setup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      saveToken(token);
+      router.push('/missions');
+    } catch (err) {
+      setErreur(err instanceof ApiError ? err.message : 'Création du compte impossible.');
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  const modeCreation = setupRequise === true;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-app bg-dot-grid px-6 py-16">
@@ -77,58 +109,134 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Carte de connexion */}
+        {/* Carte de connexion / création */}
         <Card className="order-1 p-8 lg:order-2">
-          <h2 className="font-heading text-2xl font-semibold text-fg">Connexion</h2>
-          <p className="mt-2 text-sm text-fg-muted">
-            Application privée mono-utilisateur pour piloter missions, documents et
-            portfolio.
-          </p>
-
-          <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-fg-muted">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="username"
-                required
-                icon={<Mail size={16} />}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="demo@cadre.local"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-fg-muted">
-                Mot de passe
-              </label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                icon={<Lock size={16} />}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••"
-              />
-            </div>
-
-            {erreur && (
-              <p className="rounded-lg border border-accent-pink/30 bg-accent-pink/10 px-3 py-2 text-sm text-accent-pink">
-                {erreur}
+          {setupRequise === null ? (
+            <p className="text-sm text-fg-muted">Chargement…</p>
+          ) : modeCreation ? (
+            <>
+              <h2 className="font-heading text-2xl font-semibold text-fg">Créer votre compte</h2>
+              <p className="mt-2 text-sm text-fg-muted">
+                Premier lancement : aucun compte n&apos;existe encore. Créez le vôtre —
+                unique, cette création ne sera plus possible ensuite.
               </p>
-            )}
 
-            <Button type="submit" className="w-full" disabled={enCours}>
-              <LogIn size={16} />
-              {enCours ? 'Connexion…' : 'Se connecter'}
-            </Button>
-          </form>
+              <form className="mt-8 space-y-4" onSubmit={onSubmitCreation}>
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="username"
+                    required
+                    icon={<Mail size={16} />}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="vous@exemple.fr"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Mot de passe
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    icon={<Lock size={16} />}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="8 caractères minimum"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="confirmation" className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Confirmer le mot de passe
+                  </label>
+                  <Input
+                    id="confirmation"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    icon={<Lock size={16} />}
+                    value={confirmation}
+                    onChange={(e) => setConfirmation(e.target.value)}
+                    placeholder="••••••••••"
+                  />
+                </div>
+
+                {erreur && (
+                  <p className="rounded-lg border border-accent-pink/30 bg-accent-pink/10 px-3 py-2 text-sm text-accent-pink">
+                    {erreur}
+                  </p>
+                )}
+
+                <Button type="submit" className="w-full" disabled={enCours}>
+                  <UserPlus size={16} />
+                  {enCours ? 'Création…' : 'Créer mon compte'}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h2 className="font-heading text-2xl font-semibold text-fg">Connexion</h2>
+              <p className="mt-2 text-sm text-fg-muted">
+                Application privée mono-utilisateur pour piloter missions, documents et
+                portfolio.
+              </p>
+
+              <form className="mt-8 space-y-4" onSubmit={onSubmitConnexion}>
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="username"
+                    required
+                    icon={<Mail size={16} />}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="demo@cadre.local"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Mot de passe
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    icon={<Lock size={16} />}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••"
+                  />
+                </div>
+
+                {erreur && (
+                  <p className="rounded-lg border border-accent-pink/30 bg-accent-pink/10 px-3 py-2 text-sm text-accent-pink">
+                    {erreur}
+                  </p>
+                )}
+
+                <Button type="submit" className="w-full" disabled={enCours}>
+                  <LogIn size={16} />
+                  {enCours ? 'Connexion…' : 'Se connecter'}
+                </Button>
+              </form>
+            </>
+          )}
         </Card>
       </div>
     </main>
