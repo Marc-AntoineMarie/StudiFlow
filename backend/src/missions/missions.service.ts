@@ -21,6 +21,7 @@ export class MissionsService {
     const normalise = validerEtNormaliserMission(
       {
         type: dto.type,
+        statut: dto.statut ?? 'PROPOSEE',
         dateDebut: new Date(dto.dateDebut),
         dateFin: new Date(dto.dateFin),
         heures: dto.heures ?? null,
@@ -74,6 +75,7 @@ export class MissionsService {
     const normalise = validerEtNormaliserMission(
       {
         type: dto.type ?? existante.type,
+        statut: dto.statut ?? existante.statut,
         dateDebut: dto.dateDebut ? new Date(dto.dateDebut) : existante.dateDebut,
         dateFin: dto.dateFin ? new Date(dto.dateFin) : existante.dateFin,
         heures: dto.heures !== undefined ? dto.heures : existante.heures,

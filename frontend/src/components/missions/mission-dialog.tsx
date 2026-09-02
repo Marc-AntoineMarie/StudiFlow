@@ -28,6 +28,35 @@ function toDateInput(iso: string) {
   return iso.slice(0, 10);
 }
 
+/** Comparaison de chaînes "YYYY-MM-DD" : correcte chronologiquement pour ce format. */
+function estDansLeFutur(dateISO: string): boolean {
+  const aujourdHui = new Date().toISOString().slice(0, 10);
+  return dateISO > aujourdHui;
+}
+
+/** Écart calendaire inclusif entre deux dates "YYYY-MM-DD". */
+function joursCalendaires(debut: string, fin: string): number {
+  if (!debut || !fin) return 0;
+  const t1 = new Date(`${debut}T00:00:00.000Z`).getTime();
+  const t2 = new Date(`${fin}T00:00:00.000Z`).getTime();
+  if (t2 < t1) return 0;
+  return Math.round((t2 - t1) / 86_400_000) + 1;
+}
+
+/** Même écart, week-ends (samedi/dimanche) exclus. */
+function joursOuvres(debut: string, fin: string): number {
+  if (!debut || !fin) return 0;
+  const t1 = new Date(`${debut}T00:00:00.000Z`).getTime();
+  const t2 = new Date(`${fin}T00:00:00.000Z`).getTime();
+  if (t2 < t1) return 0;
+  let compte = 0;
+  for (let t = t1; t <= t2; t += 86_400_000) {
+    const jour = new Date(t).getUTCDay(); // 0 = dimanche, 6 = samedi
+    if (jour !== 0 && jour !== 6) compte++;
+  }
+  return compte;
+}
+
 export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: MissionDialogProps) {
   const modeEdition = Boolean(mission);
 
@@ -42,6 +71,7 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
   const [nbCachets, setNbCachets] = useState('');
   const [montantHT, setMontantHT] = useState('');
   const [nbJours, setNbJours] = useState('');
+  const [exclureWeekends, setExclureWeekends] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -74,6 +104,18 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
     }
     setErreur(null);
   }, [open, mission, defaultDate]);
+
+  const dateFinFuture = dateFin !== '' && estDansLeFutur(dateFin);
+
+  // Une mission ne peut pas être "Terminée" avec une date de fin future (backend
+  // aussi imposé) : si l'utilisateur recule la date de fin dans le futur alors que
+  // "Terminée" est sélectionné, on retombe sur "Confirmée" plutôt que de laisser un
+  // état incohérent affiché.
+  useEffect(() => {
+    if (dateFinFuture && statut === 'TERMINEE') {
+      setStatut('CONFIRMEE');
+    }
+  }, [dateFinFuture, statut]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -172,11 +214,14 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
             <label className="mb-1.5 block text-xs font-medium text-fg-muted">Statut</label>
             <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutMission)}>
               {STATUTS.map((s) => (
-                <option key={s} value={s}>
+                <option key={s} value={s} disabled={s === 'TERMINEE' && dateFinFuture}>
                   {STATUT_LABEL[s]}
                 </option>
               ))}
             </Select>
+            {dateFinFuture && (
+              <p className="mt-1 text-xs text-fg-dim">Date de fin future : « Terminée » indisponible.</p>
+            )}
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-fg-muted">Date de début</label>
@@ -216,6 +261,35 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
               <label className="mb-1.5 block text-xs font-medium text-fg-muted">Nombre de jours</label>
               <Input required type="number" min={0} step="0.5" value={nbJours} onChange={(e) => setNbJours(e.target.value)} />
             </div>
+
+            {dateDebut && dateFin && (
+              <div className="sm:col-span-2">
+                <label className="flex items-center gap-2 text-xs text-fg-muted">
+                  <input
+                    type="checkbox"
+                    checked={exclureWeekends}
+                    onChange={(e) => setExclureWeekends(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-subtle accent-accent-blue"
+                  />
+                  Exclure les week-ends du décompte de jours
+                </label>
+                <p className="mt-1.5 text-xs text-fg-dim">
+                  Écart calendaire : {joursCalendaires(dateDebut, dateFin)} jour
+                  {joursCalendaires(dateDebut, dateFin) > 1 ? 's' : ''} (du {dateDebut} au {dateFin})
+                  {exclureWeekends && ` — ${joursOuvres(dateDebut, dateFin)} jour${joursOuvres(dateDebut, dateFin) > 1 ? 's' : ''} hors week-ends`}
+                  .
+                </p>
+                {nbJours !== '' &&
+                  Number(nbJours) !== (exclureWeekends ? joursOuvres(dateDebut, dateFin) : joursCalendaires(dateDebut, dateFin)) && (
+                    <p className="mt-1 rounded-lg bg-[var(--surface-1)] px-3 py-2 text-xs text-fg-muted">
+                      Le nombre de jours facturés ({nbJours}) diffère de l&apos;écart{' '}
+                      {exclureWeekends ? 'ouvré' : 'calendaire'} ci-dessus — c&apos;est normal si vous ne
+                      travaillez pas tous les jours de la plage. La mission reste affichée sur toute la
+                      plage de dates dans le calendrier.
+                    </p>
+                  )}
+              </div>
+            )}
           </div>
         )}
 
