@@ -41,7 +41,7 @@ export function MissionsList({ missions, onSelect }: MissionsListProps) {
             <tr
               key={m.id}
               onClick={() => onSelect(m)}
-              className="cursor-pointer border-b border-subtle/60 transition-colors last:border-0 hover:bg-white/[0.03]"
+              className="cursor-pointer border-b border-subtle/60 transition-colors last:border-0 hover:bg-[var(--surface-3)]"
             >
               <td className="px-4 py-3">
                 <p className="font-medium text-fg">{m.titre}</p>

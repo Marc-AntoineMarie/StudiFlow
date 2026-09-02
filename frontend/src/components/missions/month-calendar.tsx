@@ -69,7 +69,7 @@ export function MonthCalendar({ monthCursor, missions, onAddDay, onSelectMission
             <div
               key={iso}
               className={`min-h-[112px] rounded-xl border border-subtle p-2 ${
-                horsMois ? 'bg-white/[0.02] opacity-40' : 'bg-card'
+                horsMois ? 'bg-[var(--surface-3)] opacity-40' : 'bg-card'
               }`}
             >
               <div className="mb-1 flex items-center justify-between">
@@ -78,7 +78,7 @@ export function MonthCalendar({ monthCursor, missions, onAddDay, onSelectMission
                   <button
                     type="button"
                     onClick={() => onAddDay(iso)}
-                    className="rounded-md p-0.5 text-fg-dim transition-colors hover:bg-white/10 hover:text-fg"
+                    className="rounded-md p-0.5 text-fg-dim transition-colors hover:bg-[var(--surface-2)] hover:text-fg"
                     title="Ajouter une mission"
                   >
                     <Plus size={14} />

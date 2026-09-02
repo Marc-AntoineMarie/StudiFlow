@@ -1,14 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, List, Plus, RotateCcw, Search } from 'lucide-react';
+import {
+  Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
+  List,
+  Milestone,
+  Plus,
+  RotateCcw,
+  Search,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pill } from '@/components/ui/pill';
 import { MonthCalendar } from '@/components/missions/month-calendar';
 import { MissionsList } from '@/components/missions/missions-list';
+import { TimelineView } from '@/components/missions/timeline-view';
 import { MissionDialog } from '@/components/missions/mission-dialog';
-import { apiFetch } from '@/lib/api';
+import { apiDownloadBlob, apiFetch } from '@/lib/api';
 import { Mission, StatutMission, TypeMission } from '@/lib/types';
 import { STATUT_LABEL, TYPE_LABEL } from '@/lib/mission-format';
 
@@ -21,7 +33,7 @@ function debutMoisCourant() {
 }
 
 export default function MissionsPage() {
-  const [vue, setVue] = useState<'mois' | 'liste'>('mois');
+  const [vue, setVue] = useState<'mois' | 'liste' | 'timeline'>('mois');
   const [monthCursor, setMonthCursor] = useState<Date>(debutMoisCourant);
   const [typesActifs, setTypesActifs] = useState<Set<TypeMission>>(new Set());
   const [statutsActifs, setStatutsActifs] = useState<Set<StatutMission>>(new Set());
@@ -79,6 +91,21 @@ export default function MissionsPage() {
     setMonthCursor((prev) => new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + delta, 1)));
   }
 
+  async function exporter(chemin: string, nomFichier: string) {
+    try {
+      const blob = await apiDownloadBlob(chemin);
+      const url = URL.createObjectURL(blob);
+      const lien = document.createElement('a');
+      lien.href = url;
+      lien.download = nomFichier;
+      lien.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Export non bloquant pour le reste de la page ; pas de message d'erreur
+      // envahissant pour un clic secondaire.
+    }
+  }
+
   const labelMois = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(monthCursor);
 
   return (
@@ -91,10 +118,20 @@ export default function MissionsPage() {
             et statut.
           </p>
         </div>
-        <Button onClick={() => ouvrirCreation()}>
-          <Plus size={16} />
-          Nouvelle mission
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" onClick={() => exporter('/export/calendar.ics', 'cadre-missions.ics')}>
+            <CalendarDays size={16} />
+            Export .ics
+          </Button>
+          <Button variant="ghost" onClick={() => exporter('/export/missions.csv', 'cadre-missions.csv')}>
+            <FileSpreadsheet size={16} />
+            Export .csv
+          </Button>
+          <Button onClick={() => ouvrirCreation()}>
+            <Plus size={16} />
+            Nouvelle mission
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6 rounded-card border border-subtle bg-card p-4">
@@ -107,6 +144,10 @@ export default function MissionsPage() {
             <Button variant={vue === 'liste' ? 'primary' : 'ghost'} onClick={() => setVue('liste')}>
               <List size={16} />
               Liste
+            </Button>
+            <Button variant={vue === 'timeline' ? 'primary' : 'ghost'} onClick={() => setVue('timeline')}>
+              <Milestone size={16} />
+              Timeline
             </Button>
           </div>
           <Button
@@ -164,7 +205,7 @@ export default function MissionsPage() {
           <button
             type="button"
             onClick={() => changerMois(-1)}
-            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-[var(--surface-1)] hover:text-fg"
           >
             <ChevronLeft size={18} />
           </button>
@@ -172,7 +213,7 @@ export default function MissionsPage() {
           <button
             type="button"
             onClick={() => changerMois(1)}
-            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg"
+            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-[var(--surface-1)] hover:text-fg"
           >
             <ChevronRight size={18} />
           </button>
@@ -190,6 +231,9 @@ export default function MissionsPage() {
         />
       )}
       {!chargement && vue === 'liste' && <MissionsList missions={missionsFiltrees} onSelect={ouvrirEdition} />}
+      {!chargement && vue === 'timeline' && (
+        <TimelineView missions={missionsFiltrees} onSelect={ouvrirEdition} />
+      )}
 
       <MissionDialog
         open={dialogOuvert}
