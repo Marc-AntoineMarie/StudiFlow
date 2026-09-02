@@ -80,6 +80,101 @@ dégradée, donut répartition, cartes secondaires) — bibliothèque de graphes
 
 ---
 
+## 2026-09-02 — 4 retours utilisateur (calendrier, dashboard, documents, portfolio) + création de compte
+
+Retours après un premier vrai test de bout en bout de l'app. Traités un par un,
+compte-rendu donné avant chacun.
+
+**1. Écart calendaire vs jours facturés.** Confusion légitime : une mission du 3 au
+7 septembre (5 jours calendaires) peut ne facturer que 3 jours (week-end exclu). Le
+dialog de mission affiche maintenant l'écart calendaire, une case à cocher « Exclure
+les week-ends », et un message si le nombre de jours facturés diverge — informatif,
+jamais bloquant (le week-end travaillé existe dans ce métier).
+
+**2. Dashboard « qui ne bouge pas ».** Pas un bug : les missions de test avaient des
+dates dans le futur, donc hors de la fenêtre des 12 mois glissants (règle du brief).
+Révèle un vrai trou côté validation, corrigé : **impossible de marquer une mission
+« Terminée » avec une date de fin dans le futur** — `mission-validation.ts` (backend,
+avec `dateRef` injectée pour rester testable) + option désactivée côté frontend avec
+correction automatique du statut si la date de fin recule dans le futur pendant
+l'édition.
+
+**3. Documents — vignette au survol + aperçu au clic.** `poppler-utils` (`pdftoppm`)
+installé dans l'image Docker : à l'upload d'un PDF, la 1ʳᵉ page est rendue en PNG
+(best-effort, jamais bloquant). Nouvelle route `GET /documents/:id/thumbnail`. Survol
+d'une ligne → vignette flottante (mise en cache après le premier chargement). Clic sur
+une ligne → fichier ouvert dans un nouvel onglet (`window.open` synchrone avant le
+fetch, pour ne pas se faire bloquer comme pop-up) au lieu d'un téléchargement forcé.
+**Vérifié avec un vrai PDF** (généré via LibreOffice headless, pas un fichier bidouillé
+à la main) : la vignette rend fidèlement la page. Le clic-pour-ouvrir est confirmé à
+100 % pour les images (aperçu natif du navigateur) ; pour les PDF le mécanisme est
+identique mais le rendu inline n'a pas pu être vérifié dans l'environnement de test
+headless (lecteur PDF non actif) — à confirmer par le propriétaire en conditions
+réelles.
+
+**4. Portfolio — boîte de prod et clients, optionnels.** Migration additive
+(`boiteProduction String?`, `clients String[] @default([])`) — aucune donnée
+existante perdue, vérifié. Composant réutilisable `TagInput` (ajout un par un,
+chips retirables). Badges sur la carte projet uniquement si renseignés.
+
+**Piège Docker (5ᵉ occurrence, nouvelle variante)** : `prisma migrate dev` a échoué
+en `EACCES` sur `prisma/migrations/` — le dossier lui-même était root-owned depuis la
+toute première migration (créée avant l'ajout de `USER node` dans le Dockerfile, bien
+avant que la règle ne soit systématisée). Corrigé une fois pour toutes via un
+conteneur jetable (`chown -R 1000:1000`). Contrairement aux cas précédents, ça ne se
+reproduira pas : tous les fichiers du dépôt sont maintenant possédés par le bon
+utilisateur.
+
+**Panne matérielle** : l'ordinateur du propriétaire a crashé en cours de session. Les
+conteneurs Docker sont tombés (redémarrés depuis, aucune perte : Postgres a son
+propre volume, les fichiers de code n'ont jamais quitté le disque). 87 → 91 tests
+backend toujours au vert après redémarrage.
+
+**Création de compte initial.** Le propriétaire a fait remarquer, à raison, qu'un
+client non-technique reprenant le projet n'a aujourd'hui aucun moyen de créer son
+compte sans toucher à Docker/CLI — seul un compte seedé par variables d'env existe.
+Ajouté `POST /api/auth/setup` (public, une seule fois : refuse dès qu'un compte
+existe — `409`) et `GET /api/auth/setup-requise`. La page `/login` bascule
+automatiquement entre « Créer votre compte » (base vide) et « Connexion » (compte déjà
+présent). Ne rouvre pas la porte à une inscription publique multi-comptes : toujours
+mono-utilisateur, juste plus accessible à la première mise en route. Testé de bout en
+bout (création → connexion automatique → 2ᵉ tentative refusée en 409), y compris
+visuellement (bascule de mismatch de confirmation, écran de création). Compte démo
+restauré après test (`demo@cadre.local` / `demo-cadre-2026`, via le seed).
+
+**91/91 tests backend.**
+
+---
+
+## 2026-09-02 — Audit de conformité au brief + récupération de mot de passe
+
+Le propriétaire a demandé une relecture complète du brief contre ce qui est fait,
+en pointant un manque probable : la récupération de mot de passe.
+
+- **Vérifié plutôt que supposé** : la limite de 10 Mo sur l'upload de documents est
+  bien gérée proprement (`413 Payload Too Large`, JSON propre, pas de crash) — testé
+  avec un fichier de 11 Mo réel, pas juste lu dans le code.
+- **Mot de passe oublié** : le brief ne l'exige pas explicitement, mais c'est un vrai
+  trou pour un utilisateur unique. Une récupération par e-mail aurait réintroduit la
+  dépendance mail écartée au cadrage (magic link refusé pour la même raison). Solution
+  cohérente : `backend/prisma/reset-password.ts`, exécuté sur le serveur
+  (`docker compose exec backend npm run reset-password -- "nouveau-mdp"`), documenté
+  dans le README et `AGENTS.md`. Testé (ancien mot de passe rejeté, nouveau accepté,
+  mot de passe démo restauré ensuite).
+- **`README.md` remis à jour** : il datait du tout premier socle (« frontend à venir »
+  alors qu'il est fait depuis longtemps). Reflète maintenant l'app réelle
+  (fonctionnalités, stack, commandes, mot de passe oublié).
+- **Gaps identifiés dans le dossier technique** (à combler avant vendredi) :
+  spécifications fonctionnelles (partie b — user stories, captures d'écran) absentes
+  en tant que document dédié ; guide de reprise formel (partie d) absent en tant que
+  tel (`AGENTS.md` en couvre une partie, côté assistant IA, pas la version humaine
+  attendue par le brief) ; export du dossier en PDF pas encore fait.
+
+**Prochaine étape** : jeu de données de démo (~20 missions/14 mois) puis déploiement
+VPS.
+
+---
+
 ## 2026-09-02 — Thème clair/sombre, Rappels d'échéance, PDF récapitulatif
 
 Trois demandes du propriétaire après avoir testé l'app : (1) les commits envoyés en

@@ -56,6 +56,15 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Thème clair/sombre | ✅ fait — jetons de surface (pas juste une palette), bouton nav + login, persistance, anti-flash |
 | Rappels d'échéance | ✅ fait — fin de contrat, document manquant, seuil d'heures ; panneau sur le Dashboard |
 | PDF récapitulatif de mission | ✅ fait — `pdfkit`, bouton dans le dialog d'édition |
+| Récupération de mot de passe | ✅ fait — script `reset-password` (pas d'e-mail, cohérent avec le refus du magic link) |
+| README à jour (reflète l'état réel du produit) | ✅ fait |
+| Création de compte initial | ✅ fait — `POST /api/auth/setup`, usage unique (`409` si un compte existe déjà), bascule auto sur `/login` |
+| Documents : vignette PDF (survol) + aperçu (clic) | ✅ fait — `poppler-utils`/`pdftoppm`, cache client, ouverture nouvel onglet |
+| Mission : blocage « Terminée » + date de fin future | ✅ fait — backend et frontend |
+| Portfolio : boîte de prod + clients (optionnels) | ✅ fait — migration additive, `TagInput` réutilisable |
+| Spécifications fonctionnelles (dossier, partie b) | ⬜ à faire |
+| Guide de reprise formel (dossier, partie d) | ⬜ à faire — `AGENTS.md` en couvre une partie côté IA |
+| Dossier exporté en PDF | ⬜ à faire |
 | Jeu de données démo (~20 missions / 14 mois) + 1er déploiement VPS | ⬜ à faire — **prochaine étape** |
 | Dossier technique (5 parties) | 🟡 partie a faite, reste à écrire au fil de l'eau |
 
@@ -78,7 +87,11 @@ Journal détaillé des changements : `docs/journal-de-bord.md`.
    5/minute sur `/auth/login`, guard JWT **global**. Mono-utilisateur, pas
    de rôles, pas d'inscription publique. Token en `localStorage` + header `Bearer`
    pour l'instant ; cookie `httpOnly` = roadmap. Magic link écarté (dépendance mail en
-   prod + friction démo jury) → roadmap.
+   prod + friction démo jury) → roadmap. **Création du compte initial** (2026-09-02) :
+   `POST /api/auth/setup`, à usage unique (`409` dès qu'un compte existe), pour
+   qu'un client novice reprenant le projet sur sa propre base vide puisse créer son
+   compte sans Docker/CLI — ne rouvre pas l'inscription publique, mono-utilisateur
+   toujours vrai.
 5. **Sécurité "documents sensibles"** : factures / attestations / contrats sont de
    simples documents du bloc C ; ils sont protégés par le fait que **toute** route,
    téléchargement inclus, exige un JWT valide. Les fichiers ne sont jamais servis en
@@ -202,7 +215,12 @@ Détails et contraintes : `docs/02-modele-de-donnees.md` (à créer).
   correction. **Corollaire vécu une 4ᵉ fois** : `--renew-anon-volumes` est nécessaire
   après **tout** changement de `package.json` (nouvelle dépendance), pas seulement
   après un changement de `Dockerfile` — sinon `Cannot find module 'x'` malgré une
-  image reconstruite qui contient bien la dépendance.
+  image reconstruite qui contient bien la dépendance. **5ᵉ variante (2026-09-02,
+  corrigée définitivement)** : `backend/prisma/migrations/` était root-owned côté
+  hôte depuis la toute première migration (créée avant que `USER node` existe dans
+  le Dockerfile) → `EACCES` sur `prisma migrate dev`. Fixé une fois pour toutes via
+  `docker run --rm -v $(pwd)/backend:/app node:22-alpine chown -R 1000:1000 /app/prisma`.
+  Ne devrait plus se reproduire : tout appartient désormais au bon utilisateur.
 - Tout changement de schéma → migration Prisma versionnée + commit (avec l'accord du
   propriétaire, cf. ci-dessus).
 - Toute fonctionnalité coupée → ligne dans `docs/05-roadmap.md`, pas de code mort.
@@ -223,9 +241,10 @@ docker compose logs -f backend
 docker compose exec backend npm test                 # tests unitaires (dont calc/)
 docker compose exec backend npx prisma migrate dev   # nouvelle migration après modif du schema
 docker compose exec backend npm run seed             # re-seed User + Config
+docker compose exec backend npm run reset-password -- "nouveau-mdp"   # mot de passe oublié
 docker compose down                                   # arrêt (volumes db_data / uploads conservés)
 
-# Après modif de backend/package.json (nouvelles deps) :
+# Après modif d'un package.json backend OU frontend (nouvelles deps) :
 docker compose up -d --build --renew-anon-volumes
 
 # Sans Docker (tests only)
