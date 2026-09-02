@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, PieChart as PieChartIcon, Sparkles, TrendingUp } from 'lucide-react';
+import { Clock, PieChart as PieChartIcon, Sparkles, TrendingUp, Users } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { GaugeHeures } from '@/components/dashboard/gauge-heures';
 import { CaAreaChart } from '@/components/dashboard/ca-area-chart';
 import { RepartitionDonut } from '@/components/dashboard/repartition-donut';
+import {
+  RepartitionClients,
+  type RepartitionClients as RepartitionClientsData,
+} from '@/components/dashboard/repartition-clients';
 import { RappelsPanel } from '@/components/dashboard/rappels-panel';
 import { apiFetch, ApiError } from '@/lib/api';
 import { clearToken } from '@/lib/auth';
@@ -17,6 +21,7 @@ interface Indicateurs {
   caParMois: { mois: string; montantHT: number }[];
   caTotal: number;
   repartition: { partIntermittence: number; partFreelance: number };
+  repartitionClients: RepartitionClientsData;
 }
 
 /**
@@ -109,6 +114,13 @@ export default function DashboardPage() {
 
       {data && (
         <div className="mt-4 grid gap-4">
+          <Card className="p-6">
+            <span className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
+              <Users size={14} className="text-accent-purple" />
+              Répartition par client
+            </span>
+            <RepartitionClients data={data.repartitionClients} />
+          </Card>
           <RappelsPanel rappels={rappels} />
         </div>
       )}

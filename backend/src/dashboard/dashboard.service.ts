@@ -20,7 +20,15 @@ export class DashboardService {
   async getIndicateurs(dateRef: Date = new Date()): Promise<Indicateurs> {
     const [missions, config] = await Promise.all([
       this.prisma.mission.findMany({
-        select: { type: true, statut: true, dateFin: true, heures: true, montantHT: true, nbJours: true },
+        select: {
+          type: true,
+          statut: true,
+          dateFin: true,
+          heures: true,
+          montantHT: true,
+          nbJours: true,
+          clientOuProduction: true,
+        },
       }),
       this.prisma.config.findUnique({ where: { id: 1 } }),
     ]);

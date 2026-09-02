@@ -23,6 +23,8 @@ export interface MissionCalc {
   montantHT?: number | null;
   /** Freelance. */
   nbJours?: number | null;
+  /** Client (freelance) ou production (intermittence) — texte libre. */
+  clientOuProduction: string;
 }
 
 export interface ConfigCalc {
@@ -47,7 +49,29 @@ export interface Indicateurs {
     partIntermittence: number;
     partFreelance: number;
   };
+  repartitionClients: RepartitionClients;
 }
+
+/** Métrique utilisée pour peser chaque client dans la répartition. */
+export type MetriqueClient = 'ACTIVITE' | 'CA' | 'NB_MISSIONS';
+
+export interface PartClient {
+  /** Nom du client, ou "Autres" pour la ligne d'agrégat au-delà du top 5. */
+  client: string;
+  /** Heures équivalentes, € ou nombre de missions selon la métrique. */
+  valeur: number;
+  /** Part du total, 0..1. */
+  pourcentage: number;
+}
+
+export interface RepartitionClients {
+  activite: PartClient[];
+  ca: PartClient[];
+  nbMissions: PartClient[];
+}
+
+const NB_CLIENTS_AFFICHES = 5;
+const LABEL_AUTRES = 'Autres';
 
 const STATUTS_COMPTES: ReadonlySet<StatutMission> = new Set<StatutMission>([
   'CONFIRMEE',
@@ -59,12 +83,16 @@ function cleMois(annee: number, moisZeroBased: number): string {
   return `${annee}-${String(moisZeroBased + 1).padStart(2, '0')}`;
 }
 
-export function calculerIndicateurs(
+/**
+ * Fenêtre glissante (alignée sur les mois) + missions éligibles dedans
+ * (statut CONFIRMEE/TERMINEE). Partagé entre `calculerIndicateurs` et
+ * `calculerRepartitionClients` pour ne pas dupliquer la règle des 12 mois.
+ */
+function fenetreEtEligibles(
   missions: MissionCalc[],
   config: ConfigCalc,
   dateRef: Date,
-): Indicateurs {
-  // --- Fenêtre alignée sur les mois -----------------------------------------
+): { borneDebut: Date; borneFin: Date; indexMoisDebut: number; nbMois: number; eligibles: MissionCalc[] } {
   const nbMois = Math.max(1, Math.floor(config.dureeFenetreMois));
 
   const finAnnee = dateRef.getUTCFullYear();
@@ -78,7 +106,6 @@ export function calculerIndicateurs(
   const borneDebut = new Date(Date.UTC(debutAnnee, debutMois, 1, 0, 0, 0, 0));
   const borneFin = dateRef;
 
-  // --- Missions éligibles ---------------------------------------------------
   const debutTs = borneDebut.getTime();
   const finTs = borneFin.getTime();
 
@@ -87,6 +114,87 @@ export function calculerIndicateurs(
     const t = m.dateFin.getTime();
     return t >= debutTs && t <= finTs;
   });
+
+  return { borneDebut, borneFin, indexMoisDebut, nbMois, eligibles };
+}
+
+/** Valeur d'une mission pour une métrique donnée (unité selon la métrique). */
+function valeurMission(m: MissionCalc, config: ConfigCalc, metrique: MetriqueClient): number {
+  switch (metrique) {
+    case 'ACTIVITE':
+      return m.type === 'INTERMITTENCE'
+        ? (m.heures ?? 0)
+        : (m.nbJours ?? 0) * config.journeeTypeHeures;
+    case 'CA':
+      return m.type === 'FREELANCE' ? (m.montantHT ?? 0) : 0;
+    case 'NB_MISSIONS':
+      return 1;
+  }
+}
+
+/** Regroupe des missions déjà éligibles par client, top 5 + "Autres". */
+function repartitionPourMetrique(
+  eligibles: MissionCalc[],
+  config: ConfigCalc,
+  metrique: MetriqueClient,
+): PartClient[] {
+  const parClient = new Map<string, number>();
+  for (const m of eligibles) {
+    const v = valeurMission(m, config, metrique);
+    parClient.set(m.clientOuProduction, (parClient.get(m.clientOuProduction) ?? 0) + v);
+  }
+
+  const total = [...parClient.values()].reduce((acc, v) => acc + v, 0);
+
+  const tries = [...parClient.entries()]
+    .filter(([, valeur]) => valeur > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  const tete = tries.slice(0, NB_CLIENTS_AFFICHES);
+  const reste = tries.slice(NB_CLIENTS_AFFICHES);
+  const valeurAutres = reste.reduce((acc, [, v]) => acc + v, 0);
+
+  const lignes: PartClient[] = tete.map(([client, valeur]) => ({
+    client,
+    valeur,
+    pourcentage: total > 0 ? valeur / total : 0,
+  }));
+
+  if (valeurAutres > 0) {
+    lignes.push({
+      client: LABEL_AUTRES,
+      valeur: valeurAutres,
+      pourcentage: total > 0 ? valeurAutres / total : 0,
+    });
+  }
+
+  return lignes;
+}
+
+/** Répartition par client (top 5 + "Autres"), une liste par métrique. */
+export function calculerRepartitionClients(
+  missions: MissionCalc[],
+  config: ConfigCalc,
+  dateRef: Date,
+): RepartitionClients {
+  const { eligibles } = fenetreEtEligibles(missions, config, dateRef);
+  return {
+    activite: repartitionPourMetrique(eligibles, config, 'ACTIVITE'),
+    ca: repartitionPourMetrique(eligibles, config, 'CA'),
+    nbMissions: repartitionPourMetrique(eligibles, config, 'NB_MISSIONS'),
+  };
+}
+
+export function calculerIndicateurs(
+  missions: MissionCalc[],
+  config: ConfigCalc,
+  dateRef: Date,
+): Indicateurs {
+  const { borneDebut, borneFin, indexMoisDebut, nbMois, eligibles } = fenetreEtEligibles(
+    missions,
+    config,
+    dateRef,
+  );
 
   // --- Jauge (heures d'intermittence) ------------------------------------------
   const heuresCumulees = eligibles
@@ -139,6 +247,11 @@ export function calculerIndicateurs(
       heuresFreelanceEq,
       partIntermittence,
       partFreelance,
+    },
+    repartitionClients: {
+      activite: repartitionPourMetrique(eligibles, config, 'ACTIVITE'),
+      ca: repartitionPourMetrique(eligibles, config, 'CA'),
+      nbMissions: repartitionPourMetrique(eligibles, config, 'NB_MISSIONS'),
     },
   };
 }

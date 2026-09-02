@@ -1,5 +1,6 @@
 import {
   calculerIndicateurs,
+  calculerRepartitionClients,
   ConfigCalc,
   MissionCalc,
 } from './rolling-window';
@@ -22,6 +23,7 @@ function intermittence(over: Partial<MissionCalc>): MissionCalc {
     statut: 'CONFIRMEE',
     dateFin: d('2026-01-15'),
     heures: 0,
+    clientOuProduction: 'Client test',
     ...over,
   };
 }
@@ -33,6 +35,7 @@ function freelance(over: Partial<MissionCalc>): MissionCalc {
     dateFin: d('2026-01-15'),
     montantHT: 0,
     nbJours: 0,
+    clientOuProduction: 'Client test',
     ...over,
   };
 }
@@ -183,5 +186,79 @@ describe('calculerIndicateurs — règle des 12 mois glissants', () => {
     const copie = JSON.parse(JSON.stringify(missions));
     calculerIndicateurs(missions, CONFIG, DATE_REF);
     expect(JSON.parse(JSON.stringify(missions))).toEqual(copie);
+  });
+});
+
+describe('calculerRepartitionClients', () => {
+  it('somme heures + jours (en heures équivalentes) par client pour la métrique ACTIVITE', () => {
+    const missions = [
+      intermittence({ dateFin: d('2026-01-01'), heures: 10, clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2026-01-02'), nbJours: 2, clientOuProduction: 'Studio A' }), // 2×8h = 16h
+      freelance({ dateFin: d('2026-01-03'), nbJours: 1, clientOuProduction: 'Studio B' }), // 8h
+    ];
+    const r = calculerRepartitionClients(missions, CONFIG, DATE_REF);
+    expect(r.activite).toEqual([
+      { client: 'Studio A', valeur: 26, pourcentage: 26 / 34 },
+      { client: 'Studio B', valeur: 8, pourcentage: 8 / 34 },
+    ]);
+  });
+
+  it('métrique CA : ignore les missions intermittence (pas de montant)', () => {
+    const missions = [
+      intermittence({ dateFin: d('2026-01-01'), heures: 100, clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2026-01-02'), montantHT: 500, clientOuProduction: 'Studio B' }),
+    ];
+    const r = calculerRepartitionClients(missions, CONFIG, DATE_REF);
+    expect(r.ca).toEqual([{ client: 'Studio B', valeur: 500, pourcentage: 1 }]);
+  });
+
+  it('métrique NB_MISSIONS : compte les missions, tous types confondus', () => {
+    const missions = [
+      intermittence({ dateFin: d('2026-01-01'), clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2026-01-02'), clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2026-01-03'), clientOuProduction: 'Studio B' }),
+    ];
+    const r = calculerRepartitionClients(missions, CONFIG, DATE_REF);
+    expect(r.nbMissions).toEqual([
+      { client: 'Studio A', valeur: 2, pourcentage: 2 / 3 },
+      { client: 'Studio B', valeur: 1, pourcentage: 1 / 3 },
+    ]);
+  });
+
+  it('au-delà de 5 clients, regroupe le reste dans "Autres" (triés par valeur décroissante)', () => {
+    const missions = [
+      freelance({ dateFin: d('2026-01-01'), montantHT: 600, clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 500, clientOuProduction: 'Studio B' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 400, clientOuProduction: 'Studio C' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 300, clientOuProduction: 'Studio D' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 200, clientOuProduction: 'Studio E' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 100, clientOuProduction: 'Studio F' }),
+      freelance({ dateFin: d('2026-01-01'), montantHT: 50, clientOuProduction: 'Studio G' }),
+    ];
+    const r = calculerRepartitionClients(missions, CONFIG, DATE_REF);
+    expect(r.ca).toHaveLength(6); // top 5 + "Autres"
+    expect(r.ca.slice(0, 5).map((l) => l.client)).toEqual([
+      'Studio A',
+      'Studio B',
+      'Studio C',
+      'Studio D',
+      'Studio E',
+    ]);
+    expect(r.ca[5]).toEqual({ client: 'Autres', valeur: 150, pourcentage: 150 / 2150 });
+  });
+
+  it('aucune mission éligible : listes vides, aucun NaN', () => {
+    const r = calculerRepartitionClients([], CONFIG, DATE_REF);
+    expect(r).toEqual({ activite: [], ca: [], nbMissions: [] });
+  });
+
+  it('respecte la fenêtre glissante et le filtre de statut (comme calculerIndicateurs)', () => {
+    const missions = [
+      freelance({ dateFin: d('2026-01-01'), statut: 'PROPOSEE', montantHT: 999, clientOuProduction: 'Studio A' }),
+      freelance({ dateFin: d('2020-01-01'), montantHT: 999, clientOuProduction: 'Studio B' }), // hors fenêtre
+      freelance({ dateFin: d('2026-01-01'), montantHT: 42, clientOuProduction: 'Studio C' }),
+    ];
+    const r = calculerRepartitionClients(missions, CONFIG, DATE_REF);
+    expect(r.ca).toEqual([{ client: 'Studio C', valeur: 42, pourcentage: 1 }]);
   });
 });
