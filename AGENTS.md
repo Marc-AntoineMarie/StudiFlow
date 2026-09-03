@@ -77,6 +77,7 @@ Note de cadrage détaillée : `docs/01-note-de-cadrage.md`.
 | Indicateur de chargement global | ✅ fait — barre fine pilotée par un compteur partagé sur `apiFetch`/`apiDownloadBlob` |
 | Portfolio : liens de partage publics + export hors-ligne | ✅ fait — `LienPortfolio` (token, révocable), route publique isolée aux seuls projets sélectionnés, page `/portfolio-public/[token]`, fichier `.html` autonome vérifié en `file://`. |
 | Portfolio : upload + lecture de vidéo hébergée | ✅ fait — lien externe (YouTube/Vimeo) et vidéo hébergée mutuellement exclusifs par projet, streaming avec support `Range` (206), lecture protégée par JWT en `?token=` dans l'app, scoping au token du lien sur la page publique (vérifié : 404 si le projet n'est pas dans la sélection). Limite restante : la vidéo hébergée n'est pas embarquée dans l'export hors-ligne (fichier trop volumineux pour du base64) — roadmap |
+| Missions freelance : sélection des jours travaillés jour par jour | ✅ fait — `modeJours` (Plage/Jour par jour) + `joursTravailles`, dateDebut/dateFin/nbJours dérivés automatiquement en mode jour par jour (élimine la confusion week-ends historique). Calendrier : une mission jour par jour n'apparaît que sur ses jours cochés. Rétrocompatible (missions existantes en mode Plage inchangé) |
 
 Journal détaillé des changements : `docs/journal-de-bord.md`.
 

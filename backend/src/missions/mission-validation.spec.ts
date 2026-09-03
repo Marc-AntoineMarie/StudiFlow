@@ -184,4 +184,117 @@ describe('validerEtNormaliserMission', () => {
       ).not.toThrow();
     });
   });
+
+  describe('freelance — mode JOUR_PAR_JOUR', () => {
+    it('dérive dateDebut/dateFin/nbJours des jours cochés (désordonnés en entrée)', () => {
+      const r = validerEtNormaliserMission(
+        {
+          type: 'FREELANCE',
+          statut: 'CONFIRMEE',
+          // dateDebut/dateFin fournies mais ignorées : la dérivation prime.
+          dateDebut: d('2000-01-01'),
+          dateFin: d('2000-01-01'),
+          montantHT: 900,
+          modeJours: 'JOUR_PAR_JOUR',
+          joursTravailles: ['2026-01-15', '2026-01-10', '2026-01-20'],
+        },
+        8,
+        DATE_REF,
+      );
+      expect(r.dateDebut).toEqual(d('2026-01-10'));
+      expect(r.dateFin).toEqual(d('2026-01-20'));
+      expect(r.nbJours).toBe(3);
+      expect(r.joursTravailles).toEqual(['2026-01-10', '2026-01-15', '2026-01-20']); // triés
+    });
+
+    it('un seul jour coché : dateDebut = dateFin = ce jour, nbJours = 1', () => {
+      const r = validerEtNormaliserMission(
+        {
+          type: 'FREELANCE',
+          statut: 'CONFIRMEE',
+          dateDebut: d('2026-01-01'),
+          dateFin: d('2026-01-01'),
+          montantHT: 300,
+          modeJours: 'JOUR_PAR_JOUR',
+          joursTravailles: ['2026-02-14'],
+        },
+        8,
+        DATE_REF,
+      );
+      expect(r.dateDebut).toEqual(d('2026-02-14'));
+      expect(r.dateFin).toEqual(d('2026-02-14'));
+      expect(r.nbJours).toBe(1);
+    });
+
+    it('aucun jour coché : rejetée', () => {
+      expect(() =>
+        validerEtNormaliserMission(
+          {
+            type: 'FREELANCE',
+            statut: 'CONFIRMEE',
+            dateDebut: d('2026-01-01'),
+            dateFin: d('2026-01-05'),
+            montantHT: 500,
+            modeJours: 'JOUR_PAR_JOUR',
+            joursTravailles: [],
+          },
+          8,
+          DATE_REF,
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('sans montantHT malgré des jours cochés : rejetée (le montant reste requis)', () => {
+      expect(() =>
+        validerEtNormaliserMission(
+          {
+            type: 'FREELANCE',
+            statut: 'CONFIRMEE',
+            dateDebut: d('2026-01-01'),
+            dateFin: d('2026-01-05'),
+            modeJours: 'JOUR_PAR_JOUR',
+            joursTravailles: ['2026-01-03'],
+          },
+          8,
+          DATE_REF,
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('intermittence : modeJours JOUR_PAR_JOUR est ignoré (non applicable, forcé à PLAGE)', () => {
+      const r = validerEtNormaliserMission(
+        {
+          type: 'INTERMITTENCE',
+          statut: 'CONFIRMEE',
+          dateDebut: d('2026-01-01'),
+          dateFin: d('2026-01-05'),
+          heures: 16,
+          modeJours: 'JOUR_PAR_JOUR',
+          joursTravailles: ['2026-01-03'],
+        },
+        8,
+        DATE_REF,
+      );
+      expect(r.modeJours).toBe('PLAGE');
+      expect(r.joursTravailles).toEqual([]);
+      expect(r.dateDebut).toEqual(d('2026-01-01')); // pas dérivé, plage d'origine conservée
+    });
+
+    it('freelance mode PLAGE (défaut) : modeJours et joursTravailles normalisés à vide', () => {
+      const r = validerEtNormaliserMission(
+        {
+          type: 'FREELANCE',
+          statut: 'CONFIRMEE',
+          dateDebut: d('2026-01-01'),
+          dateFin: d('2026-01-05'),
+          montantHT: 1000,
+          nbJours: 5,
+        },
+        8,
+        DATE_REF,
+      );
+      expect(r.modeJours).toBe('PLAGE');
+      expect(r.joursTravailles).toEqual([]);
+    });
+  });
 });

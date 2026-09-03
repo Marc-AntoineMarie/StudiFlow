@@ -1,5 +1,7 @@
-import { StatutMission, TypeMission } from '@prisma/client';
+import { ModeJours, StatutMission, TypeMission } from '@prisma/client';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -60,4 +62,15 @@ export class UpdateMissionDto {
   @Min(0)
   @IsOptional()
   nbJours?: number;
+
+  /** Freelance uniquement. JOUR_PAR_JOUR dérive dateDebut/dateFin/nbJours côté service. */
+  @IsEnum(ModeJours)
+  @IsOptional()
+  modeJours?: ModeJours;
+
+  @IsArray()
+  @ArrayMaxSize(366)
+  @IsDateString({}, { each: true })
+  @IsOptional()
+  joursTravailles?: string[];
 }

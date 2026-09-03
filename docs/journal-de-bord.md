@@ -6,6 +6,45 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-03 — Missions freelance : sélection des jours travaillés jour par jour
+
+Chantier identifié par le propriétaire comme le plus gros restant : gérer les
+week-ends au cas par cas (visuellement et dans le calcul), avec une distinction
+contrat court (jours choisis un par un dans le planning) / contrat long
+(calcul automatique par plage, comportement historique). Cadrage avant de
+coder : bascule manuelle par mission (pas de seuil de durée automatique),
+freelance uniquement (l'intermittence compte en heures/cachets, pas en jours).
+
+**Modèle** : `Mission.modeJours` (`PLAGE` par défaut / `JOUR_PAR_JOUR`) +
+`joursTravailles` (tableau de dates). En mode `JOUR_PAR_JOUR`,
+`dateDebut`/`dateFin`/`nbJours` sont **dérivés** des jours cochés (min, max,
+compte) — jamais saisis à la main, donc jamais en décalage par construction.
+Ça remplace élégamment l'ancienne case « exclure les week-ends » + message de
+divergence (toujours en place pour le mode Plage, inchangé). Règle des 12 mois
+glissants non touchée (toujours par `dateFin`, tout ou rien — décision actée,
+non rouverte) : `dateFin` dérivée reste la date la plus tardive cochée, le
+calcul en aval ne voit aucune différence.
+
+**Frontend** : nouveau composant `DayPicker` (mini calendrier navigable,
+clic pour cocher/décocher un jour, week-ends visuellement estompés mais
+cliquables — rien n'empêche de bosser un samedi). Dans `MissionDialog`,
+bascule Plage/Jour par jour visible uniquement en Freelance ; en mode jour par
+jour, les champs Date de début/fin restent visibles mais désactivés (affichent
+le résultat dérivé en temps réel), le champ Nombre de jours disparaît
+(implicite dans le picker). `MonthCalendar` : une mission jour par jour
+n'apparaît plus que sur ses jours réellement cochés, plus sur toute la plage
+(élimine la confusion historique des jours creux affichés comme travaillés).
+
+Migration additive (`modeJours` défaut `PLAGE`, `joursTravailles` défaut
+`[]`) : toutes les missions existantes inchangées, zéro migration de données
+nécessaire. 9 tests ajoutés sur la dérivation (131 au total). Vérifié avec
+Playwright de bout en bout : création (jours désordonnés en entrée → triés,
+dates dérivées correctement, calendrier n'affiche que les jours cochés),
+réédition (mode et sélection rechargés fidèlement), non-régression sur une
+mission en mode Plage existante.
+
+---
+
 ## 2026-09-03 — Faux bug « le mot de passe ne marche qu'une fois »
 
 Signalé par le propriétaire : après un reset de mot de passe, la connexion

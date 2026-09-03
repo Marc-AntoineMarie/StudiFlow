@@ -1,5 +1,6 @@
 export type TypeMission = 'INTERMITTENCE' | 'FREELANCE';
 export type StatutMission = 'PROPOSEE' | 'CONFIRMEE' | 'TERMINEE';
+export type ModeJours = 'PLAGE' | 'JOUR_PAR_JOUR';
 export type CategorieDocument = 'CONTRAT' | 'ATTESTATION_EMPLOYEUR' | 'DEVIS' | 'FACTURE' | 'AUTRE';
 export type TagProjet = 'PRO' | 'PERSO';
 
@@ -16,6 +17,9 @@ export interface Mission {
   nbCachets: number | null;
   montantHT: number | null;
   nbJours: number | null;
+  /** Freelance uniquement. JOUR_PAR_JOUR : dateDebut/dateFin/nbJours dérivés de joursTravailles. */
+  modeJours: ModeJours;
+  joursTravailles: string[]; // "YYYY-MM-DD"
   createdAt: string;
   updatedAt: string;
 }

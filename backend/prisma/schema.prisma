@@ -20,6 +20,11 @@ enum StatutMission {
   TERMINEE
 }
 
+enum ModeJours {
+  PLAGE
+  JOUR_PAR_JOUR
+}
+
 enum CategorieDocument {
   CONTRAT
   ATTESTATION_EMPLOYEUR
@@ -68,6 +73,14 @@ model Mission {
   // Freelance
   montantHT Float?
   nbJours   Float?
+
+  /// Freelance uniquement. JOUR_PAR_JOUR : dateDebut/dateFin/nbJours sont alors
+  /// dérivés de joursTravailles (min/max/compte), jamais saisis à la main — élimine
+  /// la confusion "semaine calendaire vs jours réellement travaillés" (cf.
+  /// docs/journal-de-bord.md 2026-09-03). PLAGE (défaut) = comportement historique
+  /// inchangé, joursTravailles reste vide.
+  modeJours       ModeJours @default(PLAGE)
+  joursTravailles String[]  @default([]) // "YYYY-MM-DD", triable lexicographiquement
 
   documents Document[]
 

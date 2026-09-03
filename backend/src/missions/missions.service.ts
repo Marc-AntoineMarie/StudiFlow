@@ -28,6 +28,8 @@ export class MissionsService {
         nbCachets: dto.nbCachets ?? null,
         montantHT: dto.montantHT ?? null,
         nbJours: dto.nbJours ?? null,
+        modeJours: dto.modeJours,
+        joursTravailles: dto.joursTravailles,
       },
       heuresParCachet,
     );
@@ -45,6 +47,8 @@ export class MissionsService {
         nbCachets: normalise.nbCachets,
         montantHT: normalise.montantHT,
         nbJours: normalise.nbJours,
+        modeJours: normalise.modeJours,
+        joursTravailles: normalise.joursTravailles,
       },
     });
   }
@@ -82,6 +86,8 @@ export class MissionsService {
         nbCachets: dto.nbCachets !== undefined ? dto.nbCachets : existante.nbCachets,
         montantHT: dto.montantHT !== undefined ? dto.montantHT : existante.montantHT,
         nbJours: dto.nbJours !== undefined ? dto.nbJours : existante.nbJours,
+        modeJours: dto.modeJours ?? existante.modeJours,
+        joursTravailles: dto.joursTravailles ?? existante.joursTravailles,
       },
       heuresParCachet,
     );
@@ -100,6 +106,8 @@ export class MissionsService {
         nbCachets: normalise.nbCachets,
         montantHT: normalise.montantHT,
         nbJours: normalise.nbJours,
+        modeJours: normalise.modeJours,
+        joursTravailles: normalise.joursTravailles,
       },
     });
   }

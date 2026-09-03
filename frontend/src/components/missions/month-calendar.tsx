@@ -45,9 +45,13 @@ export function MonthCalendar({ monthCursor, missions, onAddDay, onSelectMission
     });
   }
 
-  function missionsDuJour(date: Date): Mission[] {
+  function missionsDuJour(date: Date, iso: string): Mission[] {
     const t = date.getTime();
     return missions.filter((m) => {
+      // Jour par jour : seuls les jours effectivement cochés comptent — pas toute
+      // la plage dateDebut→dateFin, qui inclurait des jours creux (résout la
+      // confusion week-ends historique, cf. journal de bord 2026-09-03).
+      if (m.modeJours === 'JOUR_PAR_JOUR') return m.joursTravailles.includes(iso);
       const debut = new Date(m.dateDebut).getTime();
       const fin = new Date(m.dateFin).getTime();
       return t >= debut && t <= fin;
@@ -64,7 +68,7 @@ export function MonthCalendar({ monthCursor, missions, onAddDay, onSelectMission
         ))}
         {cellules.map(({ date, horsMois }) => {
           const iso = isoOf(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-          const missionsJour = missionsDuJour(date);
+          const missionsJour = missionsDuJour(date, iso);
           return (
             <div
               key={iso}

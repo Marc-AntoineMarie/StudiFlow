@@ -11,9 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
 import { ThumbnailPopover } from '@/components/documents/thumbnail-popover';
+import { DayPicker } from '@/components/missions/day-picker';
 import { useThumbnailHover } from '@/lib/use-thumbnail-hover';
 import { apiDownloadBlob, apiFetch, ApiError } from '@/lib/api';
-import { AppDocument, CategorieDocument, Mission, StatutMission, TypeMission } from '@/lib/types';
+import { AppDocument, CategorieDocument, Mission, ModeJours, StatutMission, TypeMission } from '@/lib/types';
 import { STATUT_LABEL } from '@/lib/mission-format';
 import { CATEGORIE_LABEL } from '@/lib/document-format';
 
@@ -79,6 +80,8 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
   const [montantHT, setMontantHT] = useState('');
   const [nbJours, setNbJours] = useState('');
   const [exclureWeekends, setExclureWeekends] = useState(true);
+  const [modeJours, setModeJours] = useState<ModeJours>('PLAGE');
+  const [joursTravailles, setJoursTravailles] = useState<string[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -115,6 +118,8 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
       setNbCachets(mission.nbCachets?.toString() ?? '');
       setMontantHT(mission.montantHT?.toString() ?? '');
       setNbJours(mission.nbJours?.toString() ?? '');
+      setModeJours(mission.modeJours ?? 'PLAGE');
+      setJoursTravailles(mission.joursTravailles ?? []);
     } else {
       setTitre('');
       setClientOuProduction('');
@@ -127,6 +132,8 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
       setNbCachets('');
       setMontantHT('');
       setNbJours('');
+      setModeJours('PLAGE');
+      setJoursTravailles([]);
     }
     setErreur(null);
     setDocumentsAttaches([]);
@@ -201,6 +208,18 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
     }
   }
 
+  // Mode jour par jour (freelance) : dateDebut/dateFin/nbJours suivent les jours
+  // cochés, jamais saisis à la main — même dérivation que côté backend, affichée
+  // ici pour que l'utilisateur voie le résultat en temps réel (champs désactivés).
+  useEffect(() => {
+    if (type !== 'FREELANCE' || modeJours !== 'JOUR_PAR_JOUR') return;
+    if (joursTravailles.length === 0) return;
+    const tries = [...joursTravailles].sort();
+    setDateDebut(tries[0]);
+    setDateFin(tries[tries.length - 1]);
+    setNbJours(String(tries.length));
+  }, [type, modeJours, joursTravailles]);
+
   const dateFinFuture = dateFin !== '' && estDansLeFutur(dateFin);
 
   // Une mission ne peut pas être "Terminée" avec une date de fin future (backend
@@ -233,6 +252,8 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
       } else {
         payload.montantHT = Number(montantHT);
         payload.nbJours = Number(nbJours);
+        payload.modeJours = modeJours;
+        payload.joursTravailles = modeJours === 'JOUR_PAR_JOUR' ? joursTravailles : [];
       }
 
       if (modeEdition && mission) {
@@ -321,11 +342,23 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-fg-muted">Date de début</label>
-            <Input required type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+            <Input
+              required
+              type="date"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+              disabled={type === 'FREELANCE' && modeJours === 'JOUR_PAR_JOUR'}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-fg-muted">Date de fin</label>
-            <Input required type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+            <Input
+              required
+              type="date"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+              disabled={type === 'FREELANCE' && modeJours === 'JOUR_PAR_JOUR'}
+            />
           </div>
         </div>
 
@@ -348,18 +381,35 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-fg-muted">Montant HT (€)</label>
-              <Input required type="number" min={0} step="0.01" value={montantHT} onChange={(e) => setMontantHT(e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-fg-muted">Nombre de jours</label>
-              <Input required type="number" min={0} step="0.5" value={nbJours} onChange={(e) => setNbJours(e.target.value)} />
+              <label className="mb-1.5 block text-xs font-medium text-fg-muted">Jours travaillés</label>
+              <div className="flex gap-2">
+                <Pill active={modeJours === 'PLAGE'} onClick={() => setModeJours('PLAGE')}>
+                  Plage de dates
+                </Pill>
+                <Pill active={modeJours === 'JOUR_PAR_JOUR'} onClick={() => setModeJours('JOUR_PAR_JOUR')}>
+                  Jour par jour
+                </Pill>
+              </div>
             </div>
 
-            {dateDebut && dateFin && (
-              <div className="sm:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-fg-muted">Montant HT (€)</label>
+                <Input required type="number" min={0} step="0.01" value={montantHT} onChange={(e) => setMontantHT(e.target.value)} />
+              </div>
+
+              {modeJours === 'PLAGE' && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">Nombre de jours</label>
+                  <Input required type="number" min={0} step="0.5" value={nbJours} onChange={(e) => setNbJours(e.target.value)} />
+                </div>
+              )}
+            </div>
+
+            {modeJours === 'PLAGE' && dateDebut && dateFin && (
+              <div>
                 <label className="flex items-center gap-2 text-xs text-fg-muted">
                   <input
                     type="checkbox"
@@ -384,6 +434,15 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
                       plage de dates dans le calendrier.
                     </p>
                   )}
+              </div>
+            )}
+
+            {modeJours === 'JOUR_PAR_JOUR' && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+                  Sélectionner les jours travaillés
+                </label>
+                <DayPicker value={joursTravailles} onChange={setJoursTravailles} />
               </div>
             )}
           </div>
