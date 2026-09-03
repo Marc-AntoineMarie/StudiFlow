@@ -17,25 +17,46 @@ const COULEUR: Record<TypeRappel, string> = {
   SEUIL_HEURES: 'text-accent-blue bg-accent-blue/15',
 };
 
+const MAX_RAPPELS_AFFICHES = 6;
+
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(new Date(iso));
 }
 
+/** Les plus urgents (échéance la plus proche) d'abord ; sans échéance (seuil d'heures) en dernier. */
+function trierParUrgence(rappels: Rappel[]): Rappel[] {
+  return [...rappels].sort((a, b) => {
+    const ta = a.dateFin ? new Date(a.dateFin).getTime() : Infinity;
+    const tb = b.dateFin ? new Date(b.dateFin).getTime() : Infinity;
+    return ta - tb;
+  });
+}
+
 export function RappelsPanel({ rappels }: { rappels: Rappel[] }) {
   const router = useRouter();
+  const tries = trierParUrgence(rappels);
+  const affiches = tries.slice(0, MAX_RAPPELS_AFFICHES);
+  const reste = tries.length - affiches.length;
 
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
-        <AlertTriangle size={14} className="text-accent-gold" />
-        Rappels
+      <div className="mb-4 flex items-center justify-between">
+        <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-fg-dim">
+          <AlertTriangle size={14} className="text-accent-gold" />
+          Rappels
+        </span>
+        {tries.length > 0 && (
+          <span className="rounded-full bg-[var(--surface-1)] px-2.5 py-1 text-[11px] text-fg-muted">
+            {tries.length}
+          </span>
+        )}
       </div>
 
       {rappels.length === 0 ? (
         <p className="text-sm text-fg-muted">Rien à signaler — tout est à jour.</p>
       ) : (
         <ul className="space-y-3">
-          {rappels.map((r, i) => {
+          {affiches.map((r, i) => {
             const Icone = ICONE[r.type];
             const cliquable = r.missionId !== null;
             return (
@@ -71,6 +92,11 @@ export function RappelsPanel({ rappels }: { rappels: Rappel[] }) {
             );
           })}
         </ul>
+      )}
+      {reste > 0 && (
+        <p className="mt-3 text-xs text-fg-dim">
+          + {reste} autre{reste > 1 ? 's' : ''} rappel{reste > 1 ? 's' : ''}.
+        </p>
       )}
     </Card>
   );

@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '@/components/ui/pill';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
@@ -439,14 +440,16 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
 
             {documentsDisponibles.length > 0 && (
               <div className="mb-3 flex items-center gap-2">
-                <Select value={documentAAttacher} onChange={(e) => setDocumentAAttacher(e.target.value)}>
-                  <option value="">Attacher un document existant…</option>
-                  {documentsDisponibles.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.nomFichier} — {doc.mission ? `lié à « ${doc.mission.titre} »` : 'dépôt global'}
-                    </option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  value={documentAAttacher}
+                  onChange={setDocumentAAttacher}
+                  placeholder="Attacher un document existant…"
+                  options={documentsDisponibles.map((doc) => ({
+                    value: String(doc.id),
+                    label: doc.nomFichier,
+                    hint: doc.mission ? `lié à « ${doc.mission.titre} »` : 'dépôt global',
+                  }))}
+                />
                 <button
                   type="button"
                   onClick={attacherDocument}

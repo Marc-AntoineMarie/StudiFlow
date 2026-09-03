@@ -6,6 +6,41 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-03 — Sélecteurs avec recherche, rappels plafonnés, pagination documents
+
+Retour du propriétaire : les listes plates (missions, documents) devenaient
+difficiles à parcourir à mesure que le jeu de données grossit (28 missions,
+14 documents, 12 rappels dans la démo).
+
+**Nouveau composant `SearchableSelect`** (`components/ui/searchable-select.tsx`) :
+remplace un `<select>` à plat par un bouton qui ouvre un panneau avec un champ de
+recherche (filtre insensible à la casse sur le libellé + un « hint » secondaire
+optionnel), fermeture au clic extérieur. Branché aux 4 endroits qui souffraient
+du même problème :
+- Documents : champ « Mission liée » du formulaire de dépôt, filtre « Mission »
+  de la recherche, changement de mission liée à un document existant
+  (`autoOuvrir` pour s'ouvrir directement au clic sur l'icône crayon).
+- Mission (édition) : sélecteur « attacher un document existant », avec le hint
+  affichant la mission actuelle du document (ou « dépôt global »).
+
+**Rappels du dashboard plafonnés** : 6 affichés au maximum, triés par urgence
+(échéance la plus proche d'abord ; le rappel de seuil d'heures, sans échéance,
+en dernier), badge avec le total et ligne « + N autres rappels » si la liste est
+tronquée.
+
+**Pagination des documents** : `DocumentsTable` gère sa propre pagination
+(12 par page, chevrons précédent/suivant, remise à la page 1 à chaque
+changement de filtre — sinon on peut se retrouver sur une page qui n'existe
+plus après un filtrage).
+
+Vérifié avec Playwright sur le jeu de données de démo : recherche "top 14"
+filtre bien les missions, recherche "facture" filtre bien les documents,
+rappels plafonnés à 6/12 avec le bon compteur, pagination 14 documents sur
+2 pages. 0 erreur console, lint + build frontend clean. Aucun changement
+backend.
+
+---
+
 ## 2026-09-02 — Incident prod : studiflow.marc-antoinemarie.com servait un autre site
 
 Signalé par le propriétaire : `https://studiflow.marc-antoinemarie.com/login`

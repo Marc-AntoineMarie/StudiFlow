@@ -5,6 +5,7 @@ import { RotateCcw, Search } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Pill } from '@/components/ui/pill';
 import { Button } from '@/components/ui/button';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
@@ -154,14 +155,15 @@ export default function DocumentsPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-fg-muted">Mission liée</label>
-            <Select value={missionUpload} onChange={(e) => setMissionUpload(e.target.value)}>
-              <option value="">Dépôt global</option>
-              {missions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.titre}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={missionUpload}
+              onChange={setMissionUpload}
+              placeholder="Dépôt global"
+              options={[
+                { value: '', label: 'Dépôt global' },
+                ...missions.map((m) => ({ value: String(m.id), label: m.titre })),
+              ]}
+            />
           </div>
         </div>
       </Card>
@@ -197,15 +199,16 @@ export default function DocumentsPage() {
           </div>
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-dim">Mission</p>
-            <Select value={missionFiltre} onChange={(e) => setMissionFiltre(e.target.value)}>
-              <option value="">Toutes les missions</option>
-              <option value="none">Dépôt global uniquement</option>
-              {missions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.titre}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={missionFiltre}
+              onChange={setMissionFiltre}
+              placeholder="Toutes les missions"
+              options={[
+                { value: '', label: 'Toutes les missions' },
+                { value: 'none', label: 'Dépôt global uniquement' },
+                ...missions.map((m) => ({ value: String(m.id), label: m.titre })),
+              ]}
+            />
           </div>
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-dim">Recherche</p>
