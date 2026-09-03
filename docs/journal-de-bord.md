@@ -6,6 +6,37 @@ lot de changements notable. Sert de fil de reprise et alimente le *Guide de repr
 
 ---
 
+## 2026-09-03 — Faux bug « le mot de passe ne marche qu'une fois »
+
+Signalé par le propriétaire : après un reset de mot de passe, la connexion
+marche une fois puis échoue aux tentatives suivantes.
+
+**Mécanisme vérifié sain** : relu `reset-password.ts`, `seed.ts` (n'écrase
+jamais le mot de passe d'un utilisateur déjà existant, contrairement à une
+hypothèse initiale) et `auth.service.ts` — rien de suspect. Reproduit
+empiriquement : reset → login (200) → redémarrage du conteneur backend
+(`docker-entrypoint.sh` rejoue migrations + seed à chaque démarrage) → login
+à nouveau avec le même mot de passe (200 encore). Le mécanisme tient.
+
+**Cause réelle trouvée en testant le vrai parcours navigateur** (login →
+déconnexion → reconnexion, plusieurs fois de suite) : le rate-limit sur
+`/auth/login` (5 essais/minute, décision actée en §3.4, non remise en cause)
+renvoie `429 {"message":"ThrottlerException: Too Many Requests"}` — et ce
+message brut s'affichait **tel quel** dans le formulaire de connexion,
+indiscernable d'un vrai échec pour quelqu'un qui ne lit pas l'anglais
+technique. Après quelques tentatives rapprochées (retester, changer d'onglet
+dev/prod, etc.), l'utilisateur tombe sur ce message et le lit raisonnablement
+comme « ça ne marche plus ».
+
+**Corrigé** : `login/page.tsx` détecte spécifiquement le statut 429 et affiche
+« Trop de tentatives — attends une minute avant de réessayer. » au lieu du
+message brut de l'API. Le mot de passe, lui, n'a jamais cessé de fonctionner.
+Vérifié en déclenchant volontairement le 429 (5 tentatives rapides) puis en
+confirmant le nouveau message à l'écran. Aucun changement backend, 125 tests
+toujours verts.
+
+---
+
 ## 2026-09-03 — Sélecteurs avec recherche, rappels plafonnés, pagination documents
 
 Retour du propriétaire : les listes plates (missions, documents) devenaient

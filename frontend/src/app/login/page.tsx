@@ -10,6 +10,23 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { apiFetch, ApiError } from '@/lib/api';
 import { getToken, saveToken } from '@/lib/auth';
 
+/**
+ * Le throttler (5 essais/minute, cf. AGENTS.md §3.4) renvoie un 429 avec un
+ * message brut ("ThrottlerException: Too Many Requests") qui, affiché tel
+ * quel, ressemble à une erreur cassée plutôt qu'à "attends un peu" — au point
+ * de se faire passer pour "le mot de passe ne marche plus" après quelques
+ * tentatives rapprochées (bug remonté le 2026-09-03).
+ */
+function messageErreurAuth(err: unknown, defaut: string): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429) {
+      return 'Trop de tentatives — attends une minute avant de réessayer.';
+    }
+    return err.message;
+  }
+  return defaut;
+}
+
 interface AuthResponse {
   token: string;
   expiresIn: string;
@@ -47,7 +64,7 @@ export default function LoginPage() {
       saveToken(token);
       router.push('/missions');
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.message : 'Connexion impossible.');
+      setErreur(messageErreurAuth(err, 'Connexion impossible.'));
     } finally {
       setEnCours(false);
     }
@@ -69,7 +86,7 @@ export default function LoginPage() {
       saveToken(token);
       router.push('/missions');
     } catch (err) {
-      setErreur(err instanceof ApiError ? err.message : 'Création du compte impossible.');
+      setErreur(messageErreurAuth(err, 'Création du compte impossible.'));
     } finally {
       setEnCours(false);
     }
