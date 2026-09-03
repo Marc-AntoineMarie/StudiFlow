@@ -261,7 +261,28 @@ describe('validerEtNormaliserMission', () => {
       ).toThrow(BadRequestException);
     });
 
-    it('intermittence : modeJours JOUR_PAR_JOUR est ignoré (non applicable, forcé à PLAGE)', () => {
+    it('intermittence en mode JOUR_PAR_JOUR : un jour coché = un cachet, converti en heures', () => {
+      const r = validerEtNormaliserMission(
+        {
+          type: 'INTERMITTENCE',
+          statut: 'CONFIRMEE',
+          dateDebut: d('2000-01-01'), // ignorée : la dérivation prime
+          dateFin: d('2000-01-01'),
+          modeJours: 'JOUR_PAR_JOUR',
+          joursTravailles: ['2026-03-12', '2026-03-10', '2026-03-11'],
+        },
+        8, // heuresParCachet
+        DATE_REF,
+      );
+      expect(r.dateDebut).toEqual(d('2026-03-10'));
+      expect(r.dateFin).toEqual(d('2026-03-12'));
+      expect(r.nbCachets).toBe(3);
+      expect(r.heures).toBe(24); // 3 cachets * 8h
+      expect(r.montantHT).toBeNull();
+      expect(r.nbJours).toBeNull();
+    });
+
+    it('intermittence mode PLAGE (défaut) : modeJours et joursTravailles normalisés à vide', () => {
       const r = validerEtNormaliserMission(
         {
           type: 'INTERMITTENCE',
@@ -269,15 +290,13 @@ describe('validerEtNormaliserMission', () => {
           dateDebut: d('2026-01-01'),
           dateFin: d('2026-01-05'),
           heures: 16,
-          modeJours: 'JOUR_PAR_JOUR',
-          joursTravailles: ['2026-01-03'],
         },
         8,
         DATE_REF,
       );
       expect(r.modeJours).toBe('PLAGE');
       expect(r.joursTravailles).toEqual([]);
-      expect(r.dateDebut).toEqual(d('2026-01-01')); // pas dérivé, plage d'origine conservée
+      expect(r.dateDebut).toEqual(d('2026-01-01'));
     });
 
     it('freelance mode PLAGE (défaut) : modeJours et joursTravailles normalisés à vide', () => {

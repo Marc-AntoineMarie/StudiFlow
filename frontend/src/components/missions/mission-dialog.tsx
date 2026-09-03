@@ -208,16 +208,21 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
     }
   }
 
-  // Mode jour par jour (freelance) : dateDebut/dateFin/nbJours suivent les jours
-  // cochés, jamais saisis à la main — même dérivation que côté backend, affichée
-  // ici pour que l'utilisateur voie le résultat en temps réel (champs désactivés).
+  // Mode jour par jour : dateDebut/dateFin et nbJours (freelance) ou nbCachets
+  // (intermittence) suivent les jours cochés, jamais saisis à la main — même
+  // dérivation que côté backend, affichée ici pour que l'utilisateur voie le
+  // résultat en temps réel (champs désactivés).
   useEffect(() => {
-    if (type !== 'FREELANCE' || modeJours !== 'JOUR_PAR_JOUR') return;
+    if (modeJours !== 'JOUR_PAR_JOUR') return;
     if (joursTravailles.length === 0) return;
     const tries = [...joursTravailles].sort();
     setDateDebut(tries[0]);
     setDateFin(tries[tries.length - 1]);
-    setNbJours(String(tries.length));
+    if (type === 'FREELANCE') {
+      setNbJours(String(tries.length));
+    } else {
+      setNbCachets(String(tries.length));
+    }
   }, [type, modeJours, joursTravailles]);
 
   const dateFinFuture = dateFin !== '' && estDansLeFutur(dateFin);
@@ -252,9 +257,9 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
       } else {
         payload.montantHT = Number(montantHT);
         payload.nbJours = Number(nbJours);
-        payload.modeJours = modeJours;
-        payload.joursTravailles = modeJours === 'JOUR_PAR_JOUR' ? joursTravailles : [];
       }
+      payload.modeJours = modeJours;
+      payload.joursTravailles = modeJours === 'JOUR_PAR_JOUR' ? joursTravailles : [];
 
       if (modeEdition && mission) {
         await apiFetch(`/missions/${mission.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -347,7 +352,7 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
               type="date"
               value={dateDebut}
               onChange={(e) => setDateDebut(e.target.value)}
-              disabled={type === 'FREELANCE' && modeJours === 'JOUR_PAR_JOUR'}
+              disabled={modeJours === 'JOUR_PAR_JOUR'}
             />
           </div>
           <div>
@@ -357,96 +362,108 @@ export function MissionDialog({ open, onClose, onSaved, mission, defaultDate }: 
               type="date"
               value={dateFin}
               onChange={(e) => setDateFin(e.target.value)}
-              disabled={type === 'FREELANCE' && modeJours === 'JOUR_PAR_JOUR'}
+              disabled={modeJours === 'JOUR_PAR_JOUR'}
             />
           </div>
         </div>
 
-        {type === 'INTERMITTENCE' ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-fg-muted">Heures</label>
-              <Input
-                type="number"
-                min={0}
-                step="0.5"
-                value={heures}
-                onChange={(e) => setHeures(e.target.value)}
-                disabled={Boolean(nbCachets)}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-fg-muted">ou nombre de cachets</label>
-              <Input type="number" min={0} step="0.5" value={nbCachets} onChange={(e) => setNbCachets(e.target.value)} />
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-fg-muted">Jours travaillés</label>
+            <div className="flex gap-2">
+              <Pill active={modeJours === 'PLAGE'} onClick={() => setModeJours('PLAGE')}>
+                Plage de dates
+              </Pill>
+              <Pill active={modeJours === 'JOUR_PAR_JOUR'} onClick={() => setModeJours('JOUR_PAR_JOUR')}>
+                Jour par jour
+              </Pill>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-fg-muted">Jours travaillés</label>
-              <div className="flex gap-2">
-                <Pill active={modeJours === 'PLAGE'} onClick={() => setModeJours('PLAGE')}>
-                  Plage de dates
-                </Pill>
-                <Pill active={modeJours === 'JOUR_PAR_JOUR'} onClick={() => setModeJours('JOUR_PAR_JOUR')}>
-                  Jour par jour
-                </Pill>
-              </div>
-            </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-fg-muted">Montant HT (€)</label>
-                <Input required type="number" min={0} step="0.01" value={montantHT} onChange={(e) => setMontantHT(e.target.value)} />
-              </div>
-
-              {modeJours === 'PLAGE' && (
+          {type === 'INTERMITTENCE' ? (
+            modeJours === 'PLAGE' ? (
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">Nombre de jours</label>
-                  <Input required type="number" min={0} step="0.5" value={nbJours} onChange={(e) => setNbJours(e.target.value)} />
-                </div>
-              )}
-            </div>
-
-            {modeJours === 'PLAGE' && dateDebut && dateFin && (
-              <div>
-                <label className="flex items-center gap-2 text-xs text-fg-muted">
-                  <input
-                    type="checkbox"
-                    checked={exclureWeekends}
-                    onChange={(e) => setExclureWeekends(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-subtle accent-accent-blue"
+                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">Heures</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    value={heures}
+                    onChange={(e) => setHeures(e.target.value)}
+                    disabled={Boolean(nbCachets)}
                   />
-                  Exclure les week-ends du décompte de jours
-                </label>
-                <p className="mt-1.5 text-xs text-fg-dim">
-                  Écart calendaire : {joursCalendaires(dateDebut, dateFin)} jour
-                  {joursCalendaires(dateDebut, dateFin) > 1 ? 's' : ''} (du {dateDebut} au {dateFin})
-                  {exclureWeekends && ` — ${joursOuvres(dateDebut, dateFin)} jour${joursOuvres(dateDebut, dateFin) > 1 ? 's' : ''} hors week-ends`}
-                  .
-                </p>
-                {nbJours !== '' &&
-                  Number(nbJours) !== (exclureWeekends ? joursOuvres(dateDebut, dateFin) : joursCalendaires(dateDebut, dateFin)) && (
-                    <p className="mt-1 rounded-lg bg-[var(--surface-1)] px-3 py-2 text-xs text-fg-muted">
-                      Le nombre de jours facturés ({nbJours}) diffère de l&apos;écart{' '}
-                      {exclureWeekends ? 'ouvré' : 'calendaire'} ci-dessus — c&apos;est normal si vous ne
-                      travaillez pas tous les jours de la plage. La mission reste affichée sur toute la
-                      plage de dates dans le calendrier.
-                    </p>
-                  )}
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">ou nombre de cachets</label>
+                  <Input type="number" min={0} step="0.5" value={nbCachets} onChange={(e) => setNbCachets(e.target.value)} />
+                </div>
               </div>
-            )}
-
-            {modeJours === 'JOUR_PAR_JOUR' && (
+            ) : (
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-fg-muted">
-                  Sélectionner les jours travaillés
+                  Sélectionner les jours travaillés{' '}
+                  <span className="font-normal text-fg-dim">(un jour coché = un cachet)</span>
                 </label>
                 <DayPicker value={joursTravailles} onChange={setJoursTravailles} />
               </div>
-            )}
-          </div>
-        )}
+            )
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">Montant HT (€)</label>
+                  <Input required type="number" min={0} step="0.01" value={montantHT} onChange={(e) => setMontantHT(e.target.value)} />
+                </div>
+
+                {modeJours === 'PLAGE' && (
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-fg-muted">Nombre de jours</label>
+                    <Input required type="number" min={0} step="0.5" value={nbJours} onChange={(e) => setNbJours(e.target.value)} />
+                  </div>
+                )}
+              </div>
+
+              {modeJours === 'PLAGE' && dateDebut && dateFin && (
+                <div>
+                  <label className="flex items-center gap-2 text-xs text-fg-muted">
+                    <input
+                      type="checkbox"
+                      checked={exclureWeekends}
+                      onChange={(e) => setExclureWeekends(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-subtle accent-accent-blue"
+                    />
+                    Exclure les week-ends du décompte de jours
+                  </label>
+                  <p className="mt-1.5 text-xs text-fg-dim">
+                    Écart calendaire : {joursCalendaires(dateDebut, dateFin)} jour
+                    {joursCalendaires(dateDebut, dateFin) > 1 ? 's' : ''} (du {dateDebut} au {dateFin})
+                    {exclureWeekends && ` — ${joursOuvres(dateDebut, dateFin)} jour${joursOuvres(dateDebut, dateFin) > 1 ? 's' : ''} hors week-ends`}
+                    .
+                  </p>
+                  {nbJours !== '' &&
+                    Number(nbJours) !== (exclureWeekends ? joursOuvres(dateDebut, dateFin) : joursCalendaires(dateDebut, dateFin)) && (
+                      <p className="mt-1 rounded-lg bg-[var(--surface-1)] px-3 py-2 text-xs text-fg-muted">
+                        Le nombre de jours facturés ({nbJours}) diffère de l&apos;écart{' '}
+                        {exclureWeekends ? 'ouvré' : 'calendaire'} ci-dessus — c&apos;est normal si vous ne
+                        travaillez pas tous les jours de la plage. La mission reste affichée sur toute la
+                        plage de dates dans le calendrier.
+                      </p>
+                    )}
+                </div>
+              )}
+
+              {modeJours === 'JOUR_PAR_JOUR' && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+                    Sélectionner les jours travaillés
+                  </label>
+                  <DayPicker value={joursTravailles} onChange={setJoursTravailles} />
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         <div>
           <label className="mb-1.5 block text-xs font-medium text-fg-muted">Note (facultatif)</label>

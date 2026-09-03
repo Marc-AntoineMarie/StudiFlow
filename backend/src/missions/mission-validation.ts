@@ -17,7 +17,12 @@ export interface DonneesMission {
   nbCachets?: number | null;
   montantHT?: number | null;
   nbJours?: number | null;
-  /** Freelance uniquement. JOUR_PAR_JOUR dérive dateDebut/dateFin/nbJours de joursTravailles. */
+  /**
+   * JOUR_PAR_JOUR dérive dateDebut/dateFin de joursTravailles, et en plus :
+   * nbJours (freelance, un jour coché = un jour facturé) ou nbCachets
+   * (intermittence, un jour coché = un cachet — convention déjà en place pour
+   * la conversion cachets→heures).
+   */
   modeJours?: ModeJours;
   /** "YYYY-MM-DD", pertinent seulement si modeJours = JOUR_PAR_JOUR. */
   joursTravailles?: string[];
@@ -25,13 +30,15 @@ export interface DonneesMission {
 
 /**
  * Valide une mission et normalise ses champs selon son type :
- * - INTERMITTENCE : heures ou nbCachets requis ; nbCachets prime et est converti en
- *   heures via heuresParCachet ; montantHT/nbJours forcés à null. modeJours forcé à
- *   PLAGE (la sélection jour par jour n'a de sens qu'en freelance).
+ * - INTERMITTENCE, mode PLAGE (défaut) : heures ou nbCachets requis, saisis
+ *   directement ; nbCachets prime et est converti en heures via heuresParCachet.
+ * - INTERMITTENCE, mode JOUR_PAR_JOUR : nbCachets = nombre de jours cochés (un
+ *   jour = un cachet), converti en heures comme au-dessus.
  * - FREELANCE, mode PLAGE (défaut) : comportement historique inchangé — dateDebut,
  *   dateFin, montantHT et nbJours saisis directement.
- * - FREELANCE, mode JOUR_PAR_JOUR : dateDebut, dateFin et nbJours sont dérivés de
- *   joursTravailles (min, max, compte) — jamais saisis à la main, donc jamais en
+ * - FREELANCE, mode JOUR_PAR_JOUR : nbJours = nombre de jours cochés.
+ * - Dans les deux cas JOUR_PAR_JOUR : dateDebut/dateFin sont dérivées de
+ *   joursTravailles (min, max) — jamais saisies à la main, donc jamais en
  *   décalage avec les jours réellement cochés (résout la confusion week-ends
  *   historique, cf. journal de bord 2026-09-03).
  * - Une mission ne peut pas être marquée Terminée si sa date de fin est dans le
@@ -47,7 +54,7 @@ export function validerEtNormaliserMission(
   heuresParCachet: number,
   dateRef: Date = new Date(),
 ): DonneesMission {
-  const modeJourParJour = data.type === 'FREELANCE' && data.modeJours === 'JOUR_PAR_JOUR';
+  const modeJourParJour = data.modeJours === 'JOUR_PAR_JOUR';
 
   if (modeJourParJour) {
     const jours = data.joursTravailles ?? [];
@@ -59,12 +66,11 @@ export function validerEtNormaliserMission(
       ...data,
       dateDebut: new Date(`${tries[0]}T00:00:00.000Z`),
       dateFin: new Date(`${tries[tries.length - 1]}T00:00:00.000Z`),
-      nbJours: jours.length,
+      ...(data.type === 'FREELANCE' ? { nbJours: jours.length } : { nbCachets: jours.length }),
       modeJours: 'JOUR_PAR_JOUR',
       joursTravailles: tries,
     };
   } else {
-    // PLAGE (freelance) ou intermittence : pas de sélection jour par jour.
     data = { ...data, modeJours: 'PLAGE', joursTravailles: [] };
   }
 
